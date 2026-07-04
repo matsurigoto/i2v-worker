@@ -1,0 +1,12 @@
+node_modules/
+dist/
+build/
+.env
+*.log
+packages/api/prisma/dev.db
+packages/api/prisma/dev.db-journal
+packages/api/data/
+packages/worker/data/
+media/
+.DS_Store
+coverage/

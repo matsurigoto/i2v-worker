@@ -1,0 +1,95 @@
+// Prisma schema for the i2v-worker API.
+//
+// Default datasource is SQLite so the project can be built, migrated and
+// tested with zero external infrastructure. For production on Azure, point
+// DATABASE_URL at an Azure Database for PostgreSQL Flexible Server instance
+// and switch `provider` below to "postgresql" (see docs/architecture.md).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Story {
+  id          String   @id @default(uuid())
+  name        String
+  description String   @default("")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  prompts   Prompt[]
+  videoJobs VideoJob[]
+}
+
+model Prompt {
+  id      String @id @default(uuid())
+  storyId String
+  seq     Int // 1..7
+  content String
+
+  story Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
+
+  @@unique([storyId, seq])
+  @@index([storyId])
+}
+
+model ImageAsset {
+  id          String   @id @default(uuid())
+  name        String
+  storageKey  String
+  contentType String
+  size        Int
+  uploadedAt  DateTime @default(now())
+
+  videoJobs VideoJob[]
+}
+
+model VideoJob {
+  id             String   @id @default(uuid())
+  storyId        String
+  sourceImageId  String?
+  status         String   @default("running") // running | completed | failed | partial
+  triggeredAt    DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  story       Story          @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  sourceImage ImageAsset?    @relation(fields: [sourceImageId], references: [id], onDelete: SetNull)
+  segments    VideoSegment[]
+
+  @@index([storyId])
+}
+
+model VideoSegment {
+  id             String   @id @default(uuid())
+  videoJobId     String
+  seq            Int // 1..7
+  status         String   @default("pending") // pending | processing | completed | failed
+  apiTaskId      String?
+  storageKey     String?
+  thumbnailKey   String?
+  errorMessage   String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  videoJob VideoJob @relation(fields: [videoJobId], references: [id], onDelete: Cascade)
+
+  @@unique([videoJobId, seq])
+  @@index([videoJobId])
+}
+
+// Simple durable queue table, functioning as a stand-in for Azure Storage
+// Queue / Service Bus in local dev & tests. In production this can be
+// swapped for a real queue by having the API publish here AND to the real
+// queue, or by pointing the worker at QUEUE_DRIVER=azure-storage-queue.
+model QueueMessage {
+  id          String    @id @default(uuid())
+  videoJobId  String
+  createdAt   DateTime  @default(now())
+  visibleAt   DateTime  @default(now())
+  dequeueCount Int      @default(0)
+  processed   Boolean   @default(false)
+}
