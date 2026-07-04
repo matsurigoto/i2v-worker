@@ -37,7 +37,7 @@ param authUsername string = 'admin'
 @description('bcrypt hash of the auth password. Generate with: node -e "console.log(require(\'bcryptjs\').hashSync(\'yourpassword\', 10))"')
 param authPasswordHash string
 
-@description('Hostname of the Static Web App frontend (e.g. "wonderful-desert-0abc1.azurestaticapps.net"). Used to configure CORS on the API.')
+@description('Hostname only (no protocol) of the Static Web App frontend (e.g. "wonderful-desert-0abc1.azurestaticapps.net"). Used to configure CORS on the API. Leave empty to auto-detect from the deployed Static Web App.')
 param webAppHostname string = ''
 
 var storageAccountName = toLower('${namePrefix}sa${uniqueString(resourceGroup().id)}')
