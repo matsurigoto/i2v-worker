@@ -51,28 +51,29 @@ model ImageAsset {
 model VideoJob {
   id             String   @id @default(uuid())
   storyId        String
-  sourceImageId  String
+  sourceImageId  String?
   status         String   @default("running") // running | completed | failed | partial
   triggeredAt    DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  story       Story        @relation(fields: [storyId], references: [id], onDelete: Cascade)
-  sourceImage ImageAsset   @relation(fields: [sourceImageId], references: [id])
+  story       Story          @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  sourceImage ImageAsset?    @relation(fields: [sourceImageId], references: [id], onDelete: SetNull)
   segments    VideoSegment[]
 
   @@index([storyId])
 }
 
 model VideoSegment {
-  id           String   @id @default(uuid())
-  videoJobId   String
-  seq          Int // 1..7
-  status       String   @default("pending") // pending | processing | completed | failed
-  apiTaskId    String?
-  storageKey   String?
-  errorMessage String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id             String   @id @default(uuid())
+  videoJobId     String
+  seq            Int // 1..7
+  status         String   @default("pending") // pending | processing | completed | failed
+  apiTaskId      String?
+  storageKey     String?
+  thumbnailKey   String?
+  errorMessage   String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   videoJob VideoJob @relation(fields: [videoJobId], references: [id], onDelete: Cascade)
 

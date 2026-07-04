@@ -32,7 +32,8 @@ export class LocalFsStorage implements BlobStorage {
     return path.join(this.options.rootDir, safeKey);
   }
 
-  async put(key: string, data: Buffer): Promise<string> {
+  async put(key: string, data: Buffer, _contentType?: string): Promise<string> {
+    void _contentType;
     const filePath = this.resolvePath(key);
     await fs.mkdir(path.dirname(filePath), { recursive: true });
     await fs.writeFile(filePath, data);
