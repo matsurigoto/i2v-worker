@@ -26,6 +26,20 @@ param dbAdminPassword string
 @description('Container image for the worker, e.g. myregistry.azurecr.io/i2v-worker:latest')
 param workerContainerImage string
 
+@secure()
+@description('JWT secret for signing session tokens. Must be a long random string in production.')
+param jwtSecret string
+
+@description('Auth username for the single admin account.')
+param authUsername string = 'admin'
+
+@secure()
+@description('bcrypt hash of the auth password. Generate with: node -e "console.log(require(\'bcryptjs\').hashSync(\'yourpassword\', 10))"')
+param authPasswordHash string
+
+@description('Hostname only (no protocol) of the Static Web App frontend (e.g. "wonderful-desert-0abc1.azurestaticapps.net"). Used to configure CORS on the API. Leave empty to auto-detect from the deployed Static Web App.')
+param webAppHostname string = ''
+
 var storageAccountName = toLower('${namePrefix}sa${uniqueString(resourceGroup().id)}')
 var dbServerName = '${namePrefix}-psql-${uniqueString(resourceGroup().id)}'
 var appServicePlanName = '${namePrefix}-plan'
@@ -132,6 +146,11 @@ resource apiApp 'Microsoft.Web/sites@2023-12-01' = {
         { name: 'AZURE_STORAGE_CONTAINER_NAME', value: 'media' }
         { name: 'AZURE_STORAGE_QUEUE_NAME', value: 'video-jobs' }
         { name: 'WEBSITES_PORT', value: '4000' }
+        { name: 'NODE_ENV', value: 'production' }
+        { name: 'CORS_ORIGIN', value: webAppHostname != '' ? 'https://${webAppHostname}' : 'https://${staticWebApp.properties.defaultHostname}' }
+        { name: 'JWT_SECRET', value: jwtSecret }
+        { name: 'AUTH_USERNAME', value: authUsername }
+        { name: 'AUTH_PASSWORD_HASH', value: authPasswordHash }
       ]
     }
   }
