@@ -1,0 +1,27 @@
+{
+  "name": "i2v-worker-monorepo",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Story -> Image -> Video (i2v) production platform: web console, API, and background worker",
+  "workspaces": [
+    "packages/shared",
+    "packages/db",
+    "packages/api",
+    "packages/worker",
+    "packages/web"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace=packages/shared && npm run build --workspace=packages/db && npm run build --workspace=packages/api && npm run build --workspace=packages/worker && npm run build --workspace=packages/web",
+    "lint": "npm run lint --workspace=packages/shared && npm run lint --workspace=packages/db && npm run lint --workspace=packages/api && npm run lint --workspace=packages/worker && npm run lint --workspace=packages/web",
+    "test": "npm run test --workspace=packages/shared && npm run test --workspace=packages/db && npm run test --workspace=packages/api && npm run test --workspace=packages/worker",
+    "dev:api": "npm run dev --workspace=packages/api",
+    "dev:worker": "npm run dev --workspace=packages/worker",
+    "dev:web": "npm run dev --workspace=packages/web"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
