@@ -183,6 +183,7 @@ resource staticWebApp 'Microsoft.Web/staticSites@2023-12-01' = {
   properties: {}
 }
 
+output apiAppName string = apiApp.name
 output apiAppHostName string = apiApp.properties.defaultHostName
 output staticWebAppHostName string = staticWebApp.properties.defaultHostname
 output storageAccountName string = storage.name
