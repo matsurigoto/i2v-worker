@@ -1,13 +1,16 @@
 import { getPrismaClient } from "@i2v/db";
-import { LocalFsStorage, PaasApiClient } from "@i2v/shared";
+import { createStorageFromEnv, PaasApiClient } from "@i2v/shared";
 import { config } from "./config";
 import { claimNextMessage } from "./queue";
 import { runVideoJob } from "./segmentProcessor";
 
 const prisma = getPrismaClient();
-const storage = new LocalFsStorage({
-  rootDir: config.mediaRootDir,
-  publicBasePath: config.mediaPublicBasePath,
+const storage = createStorageFromEnv({
+  driver: config.storageDriver,
+  localRootDir: config.mediaRootDir,
+  localPublicBasePath: config.mediaPublicBasePath,
+  azureConnectionString: config.azureStorageConnectionString,
+  azureContainerName: config.azureStorageContainerName,
 });
 const paasClient = new PaasApiClient({
   baseUrl: config.paasApiBaseUrl,

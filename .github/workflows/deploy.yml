@@ -1,0 +1,125 @@
+name: Deploy to Azure
+
+# Manual/production deployment workflow, intended to run after CI passes on
+# `main`. Uses GitHub OIDC to authenticate to Azure (no stored client secret).
+#
+# Required repository/environment secrets:
+#   AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID  - federated OIDC app registration
+#   AZURE_RESOURCE_GROUP                                     - target resource group
+#   DB_ADMIN_PASSWORD                                        - PostgreSQL admin password
+#
+# See docs/architecture.md for the full setup guide.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy-infra:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy Bicep template
+        uses: azure/arm-deploy@v2
+        with:
+          scope: resourcegroup
+          resourceGroupName: ${{ secrets.AZURE_RESOURCE_GROUP }}
+          template: infra/bicep/main.bicep
+          parameters: >
+            dbAdminPassword=${{ secrets.DB_ADMIN_PASSWORD }}
+            workerContainerImage=ghcr.io/${{ github.repository }}-worker:latest
+
+  build-and-push-worker-image:
+    runs-on: ubuntu-latest
+    needs: deploy-infra
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push worker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: packages/worker/Dockerfile
+          push: true
+          tags: ghcr.io/${{ github.repository }}-worker:latest
+
+  deploy-api:
+    runs-on: ubuntu-latest
+    needs: deploy-infra
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install & build API
+        run: |
+          npm install --workspaces --include-workspace-root
+          npm run build --workspace=packages/shared
+          npm run build --workspace=packages/db
+          npm run build --workspace=packages/api
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy API to App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ vars.AZURE_API_APP_NAME }}
+          package: packages/api
+
+  deploy-web:
+    runs-on: ubuntu-latest
+    needs: deploy-infra
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install & build web
+        run: |
+          npm install --workspaces --include-workspace-root
+          npm run build --workspace=packages/web
+        env:
+          VITE_API_BASE_URL: ${{ vars.API_BASE_URL }}
+
+      - name: Deploy to Azure Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: upload
+          app_location: packages/web/dist
+          skip_app_build: true

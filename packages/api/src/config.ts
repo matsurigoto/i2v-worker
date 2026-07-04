@@ -13,6 +13,9 @@ export const config = {
   cookieName: "i2v_session",
   mediaRootDir: process.env.MEDIA_ROOT_DIR ?? path.join(process.cwd(), "data", "media"),
   mediaPublicBasePath: process.env.MEDIA_PUBLIC_BASE_PATH ?? "/media",
+  storageDriver: process.env.STORAGE_DRIVER ?? "local",
+  azureStorageConnectionString: process.env.AZURE_STORAGE_CONNECTION_STRING,
+  azureStorageContainerName: process.env.AZURE_STORAGE_CONTAINER_NAME,
   corsOrigin: process.env.CORS_ORIGIN ?? "http://localhost:5173",
   imagesPageSizeDefault: 24,
 };

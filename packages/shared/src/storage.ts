@@ -1,5 +1,6 @@
 import { promises as fs } from "fs";
 import path from "path";
+import { BlobServiceClient, ContainerClient } from "@azure/storage-blob";
 
 /**
  * Storage abstraction so the API/worker code is not coupled to a specific
@@ -51,5 +52,48 @@ export class LocalFsStorage implements BlobStorage {
   urlFor(key: string): string {
     const safeKey = key.replace(/^\/+/, "");
     return `${this.options.publicBasePath.replace(/\/+$/, "")}/${safeKey}`;
+  }
+}
+
+export interface AzureBlobStorageOptions {
+  connectionString: string;
+  containerName: string;
+}
+
+/**
+ * Azure Blob Storage backed implementation of BlobStorage, intended for
+ * production use (see infra/bicep/main.bicep and docs/architecture.md).
+ * Container access is private; `urlFor` returns the blob's plain URL, so
+ * callers needing time-limited public access should generate a SAS token
+ * (not implemented here to keep the default container private-by-default).
+ */
+export class AzureBlobStorage implements BlobStorage {
+  private readonly containerClient: ContainerClient;
+
+  constructor(options: AzureBlobStorageOptions) {
+    const serviceClient = BlobServiceClient.fromConnectionString(options.connectionString);
+    this.containerClient = serviceClient.getContainerClient(options.containerName);
+  }
+
+  async put(key: string, data: Buffer, contentType: string): Promise<string> {
+    const blockBlobClient = this.containerClient.getBlockBlobClient(key);
+    await blockBlobClient.uploadData(data, {
+      blobHTTPHeaders: { blobContentType: contentType },
+    });
+    return this.urlFor(key);
+  }
+
+  async get(key: string): Promise<Buffer> {
+    const blockBlobClient = this.containerClient.getBlockBlobClient(key);
+    return blockBlobClient.downloadToBuffer();
+  }
+
+  async delete(key: string): Promise<void> {
+    const blockBlobClient = this.containerClient.getBlockBlobClient(key);
+    await blockBlobClient.deleteIfExists();
+  }
+
+  urlFor(key: string): string {
+    return this.containerClient.getBlockBlobClient(key).url;
   }
 }

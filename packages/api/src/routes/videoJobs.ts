@@ -1,16 +1,12 @@
 import { Router } from "express";
 import { getPrismaClient } from "@i2v/db";
-import { LocalFsStorage, SEGMENT_COUNT, VideoJob, VideoSegment } from "@i2v/shared";
-import { config } from "../config";
+import { SEGMENT_COUNT, VideoJob, VideoSegment } from "@i2v/shared";
+import { storage } from "../storage";
 
 export const videoJobsRouter = Router();
 export const storyVideoJobsRouter = Router({ mergeParams: true });
 
 const prisma = getPrismaClient();
-const storage = new LocalFsStorage({
-  rootDir: config.mediaRootDir,
-  publicBasePath: config.mediaPublicBasePath,
-});
 
 type SegmentRow = {
   id: string;

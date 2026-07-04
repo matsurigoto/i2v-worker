@@ -15,6 +15,9 @@ export const config = {
   workerTickMs: num("WORKER_TICK_MS", 5000),
   mediaRootDir: process.env.MEDIA_ROOT_DIR ?? path.join(process.cwd(), "data", "media"),
   mediaPublicBasePath: process.env.MEDIA_PUBLIC_BASE_PATH ?? "/media",
+  storageDriver: process.env.STORAGE_DRIVER ?? "local",
+  azureStorageConnectionString: process.env.AZURE_STORAGE_CONNECTION_STRING,
+  azureStorageContainerName: process.env.AZURE_STORAGE_CONTAINER_NAME,
   imageToVideo: {
     model: process.env.IMAGE_TO_VIDEO_MODEL || undefined,
     fps: process.env.IMAGE_TO_VIDEO_FPS ? num("IMAGE_TO_VIDEO_FPS", 0) : undefined,

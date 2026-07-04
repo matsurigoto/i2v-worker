@@ -1,0 +1,62 @@
+version: "3.9"
+
+# Local development stack: Postgres (mirrors production DB engine), the API
+# and the worker. Run `docker compose up --build`, then visit the web app
+# separately via `npm run dev:web` (Vite dev server proxies /api & /media to
+# the API container).
+#
+# NOTE: packages/db/prisma/schema.prisma defaults to `provider = "sqlite"`
+# for zero-dependency local dev/tests. To actually exercise Postgres via this
+# compose file, switch the schema's datasource provider to "postgresql" and
+# run `npm run prisma:migrate --workspace=packages/db` once against
+# DATABASE_URL below.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: i2v
+      POSTGRES_PASSWORD: i2v-dev-password
+      POSTGRES_DB: i2v
+    ports:
+      - "5432:5432"
+    volumes:
+      - i2v-postgres-data:/var/lib/postgresql/data
+
+  api:
+    build:
+      context: .
+      dockerfile: packages/api/Dockerfile
+    depends_on:
+      - postgres
+    environment:
+      DATABASE_URL: postgresql://i2v:${POSTGRES_PASSWORD:-i2v-dev-password}@postgres:5432/i2v
+      JWT_SECRET: dev-insecure-secret-change-me
+      AUTH_USERNAME: admin
+      AUTH_PASSWORD_HASH: $$2a$$10$$Ar7JzAIi8fWs6g3JR/PHduOj4GqI1iSjQqR6ho1bCB0LM6ylv1FJ6
+      MEDIA_ROOT_DIR: /data/media
+      MEDIA_PUBLIC_BASE_PATH: /media
+      CORS_ORIGIN: http://localhost:5173
+    ports:
+      - "4000:4000"
+    volumes:
+      - i2v-media:/data/media
+
+  worker:
+    build:
+      context: .
+      dockerfile: packages/worker/Dockerfile
+    depends_on:
+      - postgres
+      - api
+    environment:
+      DATABASE_URL: postgresql://i2v:${POSTGRES_PASSWORD:-i2v-dev-password}@postgres:5432/i2v
+      PAAS_API_BASE_URL: ${PAAS_API_BASE_URL:-https://paas.example.com}
+      PAAS_API_KEY: ${PAAS_API_KEY:-}
+      MEDIA_ROOT_DIR: /data/media
+      MEDIA_PUBLIC_BASE_PATH: /media
+    volumes:
+      - i2v-media:/data/media
+
+volumes:
+  i2v-postgres-data:
+  i2v-media:

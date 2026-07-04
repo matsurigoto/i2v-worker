@@ -2,16 +2,12 @@ import { Router } from "express";
 import crypto from "crypto";
 import multer from "multer";
 import { getPrismaClient } from "@i2v/db";
-import { LocalFsStorage } from "@i2v/shared";
 import { config } from "../config";
+import { storage } from "../storage";
 
 export const imagesRouter = Router();
 
 const prisma = getPrismaClient();
-const storage = new LocalFsStorage({
-  rootDir: config.mediaRootDir,
-  publicBasePath: config.mediaPublicBasePath,
-});
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
 
 imagesRouter.get("/", async (req, res) => {
