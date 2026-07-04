@@ -1,12 +1,27 @@
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import rateLimit from "express-rate-limit";
 import { config } from "./config";
 import { authRouter } from "./routes/auth";
 import { storiesRouter } from "./routes/stories";
 import { imagesRouter } from "./routes/images";
 import { videoJobsRouter, storyVideoJobsRouter } from "./routes/videoJobs";
 import { requireAuth } from "./middleware/auth";
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 export function createApp() {
   const app = express();
@@ -18,13 +33,13 @@ export function createApp() {
 
   app.get("/health", (_req, res) => res.json({ status: "ok" }));
 
-  app.use("/api/auth", authRouter);
+  app.use("/api/auth", authLimiter, authRouter);
 
   // Everything below requires an authenticated session.
-  app.use("/api/stories", requireAuth, storiesRouter);
-  app.use("/api/stories/:storyId/videojobs", requireAuth, storyVideoJobsRouter);
-  app.use("/api/images", requireAuth, imagesRouter);
-  app.use("/api/videojobs", requireAuth, videoJobsRouter);
+  app.use("/api/stories", apiLimiter, requireAuth, storiesRouter);
+  app.use("/api/stories/:storyId/videojobs", apiLimiter, requireAuth, storyVideoJobsRouter);
+  app.use("/api/images", apiLimiter, requireAuth, imagesRouter);
+  app.use("/api/videojobs", apiLimiter, requireAuth, videoJobsRouter);
 
   return app;
 }
