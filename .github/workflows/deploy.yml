@@ -7,6 +7,8 @@ name: Deploy to Azure
 #   AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID  - federated OIDC app registration
 #   AZURE_RESOURCE_GROUP                                     - target resource group
 #   DB_ADMIN_PASSWORD                                        - PostgreSQL admin password
+#   JWT_SECRET                                               - JWT signing secret for API auth
+#   AUTH_PASSWORD_HASH                                       - bcrypt hash for API admin password
 #
 # See docs/architecture.md for the full setup guide.
 
@@ -69,6 +71,8 @@ jobs:
           parameters: >
             dbAdminPassword=${{ secrets.DB_ADMIN_PASSWORD }}
             workerContainerImage=${{ env.WORKER_IMAGE }}
+            jwtSecret=${{ secrets.JWT_SECRET }}
+            authPasswordHash=${{ secrets.AUTH_PASSWORD_HASH }}
 
   deploy-api:
     runs-on: ubuntu-latest
