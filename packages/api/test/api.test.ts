@@ -18,7 +18,6 @@ beforeAll(async () => {
   // bcrypt hash of "admin"
   process.env.AUTH_PASSWORD_HASH =
     "$2a$10$Ar7JzAIi8fWs6g3JR/PHduOj4GqI1iSjQqR6ho1bCB0LM6ylv1FJ6";
-  process.env.CORS_ORIGIN = "https://app.example.com,http://localhost:5173";
 
   const dbPackageDir = path.resolve(__dirname, "../../db");
   execSync("npx prisma db push --skip-generate", {
@@ -27,6 +26,9 @@ beforeAll(async () => {
     stdio: "inherit",
   });
 
+  // CORS_ORIGIN must be set before createApp() because config is evaluated at
+  // import time. Two origins are configured to exercise multi-origin support.
+  process.env.CORS_ORIGIN = "https://app.example.com,http://localhost:5173";
   const { createApp } = await import("../src/index");
   app = createApp();
   agent = request.agent(app);
