@@ -26,6 +26,9 @@ beforeAll(async () => {
     stdio: "inherit",
   });
 
+  // CORS_ORIGIN must be set before createApp() because config is evaluated at
+  // import time. Two origins are configured to exercise multi-origin support.
+  process.env.CORS_ORIGIN = "https://app.example.com,http://localhost:5173";
   const { createApp } = await import("../src/index");
   app = createApp();
   agent = request.agent(app);
@@ -179,5 +182,33 @@ describe("video jobs", () => {
 
     const deleteRes = await agent.delete(`/api/videojobs/${triggerRes.body.id}`);
     expect(deleteRes.status).toBe(204);
+  });
+});
+
+describe("CORS", () => {
+  it("allows preflight from a configured origin", async () => {
+    const res = await request(app)
+      .options("/api/auth/login")
+      .set("Origin", "https://app.example.com")
+      .set("Access-Control-Request-Method", "POST");
+    expect(res.status).toBe(204);
+    expect(res.headers["access-control-allow-origin"]).toBe("https://app.example.com");
+  });
+
+  it("allows preflight from a second configured origin", async () => {
+    const res = await request(app)
+      .options("/api/auth/login")
+      .set("Origin", "http://localhost:5173")
+      .set("Access-Control-Request-Method", "POST");
+    expect(res.status).toBe(204);
+    expect(res.headers["access-control-allow-origin"]).toBe("http://localhost:5173");
+  });
+
+  it("does not echo CORS headers for an unknown origin", async () => {
+    const res = await request(app)
+      .options("/api/auth/login")
+      .set("Origin", "https://evil.example.com")
+      .set("Access-Control-Request-Method", "POST");
+    expect(res.headers["access-control-allow-origin"]).toBeUndefined();
   });
 });
