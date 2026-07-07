@@ -21,10 +21,13 @@ authRouter.post("/login", async (req, res) => {
   }
 
   const token = jwt.sign({ username }, config.jwtSecret, { expiresIn: "12h" });
+  const isProduction = process.env.NODE_ENV === "production";
   res.cookie(config.cookieName, token, {
     httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    // Production: SameSite=None;Secure required for cross-origin fetch (SWA → App Service).
+    // Local dev: SameSite=Lax is sufficient since the Vite proxy makes requests same-origin.
+    sameSite: isProduction ? "none" : "lax",
+    secure: isProduction,
     maxAge: 12 * 60 * 60 * 1000,
   });
   res.json({ username });
