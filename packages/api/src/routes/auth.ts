@@ -23,7 +23,7 @@ authRouter.post("/login", async (req, res) => {
   const token = jwt.sign({ username }, config.jwtSecret, { expiresIn: "12h" });
   res.cookie(config.cookieName, token, {
     httpOnly: true,
-    sameSite: "lax",
+    sameSite: "none",
     secure: process.env.NODE_ENV === "production",
     maxAge: 12 * 60 * 60 * 1000,
   });
