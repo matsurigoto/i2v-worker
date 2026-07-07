@@ -18,6 +18,7 @@ beforeAll(async () => {
   // bcrypt hash of "admin"
   process.env.AUTH_PASSWORD_HASH =
     "$2a$10$Ar7JzAIi8fWs6g3JR/PHduOj4GqI1iSjQqR6ho1bCB0LM6ylv1FJ6";
+  process.env.CORS_ORIGIN = "https://app.example.com,http://localhost:5173";
 
   const dbPackageDir = path.resolve(__dirname, "../../db");
   execSync("npx prisma db push --skip-generate", {
@@ -179,5 +180,33 @@ describe("video jobs", () => {
 
     const deleteRes = await agent.delete(`/api/videojobs/${triggerRes.body.id}`);
     expect(deleteRes.status).toBe(204);
+  });
+});
+
+describe("CORS", () => {
+  it("allows preflight from a configured origin", async () => {
+    const res = await request(app)
+      .options("/api/auth/login")
+      .set("Origin", "https://app.example.com")
+      .set("Access-Control-Request-Method", "POST");
+    expect(res.status).toBe(204);
+    expect(res.headers["access-control-allow-origin"]).toBe("https://app.example.com");
+  });
+
+  it("allows preflight from a second configured origin", async () => {
+    const res = await request(app)
+      .options("/api/auth/login")
+      .set("Origin", "http://localhost:5173")
+      .set("Access-Control-Request-Method", "POST");
+    expect(res.status).toBe(204);
+    expect(res.headers["access-control-allow-origin"]).toBe("http://localhost:5173");
+  });
+
+  it("does not echo CORS headers for an unknown origin", async () => {
+    const res = await request(app)
+      .options("/api/auth/login")
+      .set("Origin", "https://evil.example.com")
+      .set("Access-Control-Request-Method", "POST");
+    expect(res.headers["access-control-allow-origin"]).toBeUndefined();
   });
 });
