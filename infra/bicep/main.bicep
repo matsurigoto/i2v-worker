@@ -147,6 +147,11 @@ resource apiApp 'Microsoft.Web/sites@2023-12-01' = {
         { name: 'AZURE_STORAGE_QUEUE_NAME', value: 'video-jobs' }
         { name: 'WEBSITES_PORT', value: '4000' }
         { name: 'NODE_ENV', value: 'production' }
+        // The deployed package already contains a pre-built node_modules
+        // (workspace deps like @i2v/db/@i2v/shared aren't published to npm,
+        // so Oryx's own `npm install` would fail/produce an incomplete
+        // install). Ship a self-contained package instead and skip Oryx.
+        { name: 'SCM_DO_BUILD_DURING_DEPLOYMENT', value: 'false' }
         { name: 'CORS_ORIGIN', value: webAppHostname != '' ? 'https://${webAppHostname}' : 'https://${staticWebApp.properties.defaultHostname}' }
         { name: 'JWT_SECRET', value: jwtSecret }
         { name: 'AUTH_USERNAME', value: authUsername }
