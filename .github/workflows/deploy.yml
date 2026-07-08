@@ -57,6 +57,7 @@ jobs:
       api-app-name: ${{ steps.deploy_bicep.outputs.apiAppName }}
       api-app-hostname: ${{ steps.deploy_bicep.outputs.apiAppHostName }}
       static-web-app-name: ${{ steps.deploy_bicep.outputs.staticWebAppName }}
+      static-web-app-hostname: ${{ steps.deploy_bicep.outputs.staticWebAppHostName }}
     steps:
       - uses: actions/checkout@v4
 
@@ -110,6 +111,13 @@ jobs:
         with:
           app-name: ${{ needs.deploy-infra.outputs.api-app-name }}
           package: packages/api
+
+      - name: Update CORS_ORIGIN app setting
+        run: |
+          az webapp config appsettings set \
+            --name ${{ needs.deploy-infra.outputs.api-app-name }} \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --settings CORS_ORIGIN=https://${{ needs.deploy-infra.outputs.static-web-app-hostname }}
 
   deploy-web:
     runs-on: ubuntu-latest
