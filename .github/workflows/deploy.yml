@@ -99,6 +99,21 @@ jobs:
           npm run build --workspace=packages/db
           npm run build --workspace=packages/api
 
+      - name: Assemble self-contained API deployment package
+        run: |
+          # npm workspaces hoists all dependencies (express, cors, and the
+          # internal @i2v/db / @i2v/shared packages) into the repo root
+          # node_modules as symlinks. packages/api on its own has no
+          # node_modules, so deploying that folder as-is causes the app to
+          # crash on boot with "Cannot find module 'express'". Assemble a
+          # self-contained package with node_modules (symlinks dereferenced
+          # so the built @i2v/db / @i2v/shared dist output is included).
+          rm -rf /tmp/api-deploy
+          mkdir -p /tmp/api-deploy
+          cp -r packages/api/dist /tmp/api-deploy/dist
+          cp packages/api/package.json /tmp/api-deploy/package.json
+          cp -rL node_modules /tmp/api-deploy/node_modules
+
       - name: Azure login (OIDC)
         uses: azure/login@v2
         with:
@@ -110,7 +125,7 @@ jobs:
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ needs.deploy-infra.outputs.api-app-name }}
-          package: packages/api
+          package: /tmp/api-deploy
 
       - name: Update CORS_ORIGIN app setting
         run: |
