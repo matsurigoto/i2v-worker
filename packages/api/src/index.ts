@@ -26,6 +26,11 @@ const apiLimiter = rateLimit({
 export function createApp() {
   const app = express();
 
+  // Trust the configured number of proxy hops so `req.ip` (and therefore
+  // express-rate-limit) correctly reflects the real client IP from
+  // `X-Forwarded-For` instead of throwing ERR_ERL_UNEXPECTED_X_FORWARDED_FOR.
+  app.set("trust proxy", config.trustProxy);
+
   app.use(cors({ origin: config.corsOrigin, credentials: true }));
   app.use(cookieParser());
   app.use(express.json({ limit: "10mb" }));

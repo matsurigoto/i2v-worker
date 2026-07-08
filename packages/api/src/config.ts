@@ -16,6 +16,12 @@ export const config = {
   mediaRootDir: process.env.MEDIA_ROOT_DIR ?? path.join(process.cwd(), "data", "media"),
   mediaPublicBasePath: process.env.MEDIA_PUBLIC_BASE_PATH ?? "/media",
   storageDriver: process.env.STORAGE_DRIVER ?? "local",
+  // Number of hops to trust ahead of the app for `X-Forwarded-For` (e.g. the
+  // reverse proxy in front of Azure App Service). Defaults to 1 so that
+  // express-rate-limit can correctly derive the client IP without triggering
+  // its ERR_ERL_UNEXPECTED_X_FORWARDED_FOR validation error. Set to 0 to
+  // disable trusting any proxy (e.g. for local development without one).
+  trustProxy: Number(process.env.TRUST_PROXY ?? 1),
   azureStorageConnectionString: process.env.AZURE_STORAGE_CONNECTION_STRING,
   azureStorageContainerName: process.env.AZURE_STORAGE_CONTAINER_NAME,
   // Trailing slashes are stripped since browsers never send a trailing slash
