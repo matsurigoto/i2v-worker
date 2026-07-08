@@ -16,9 +16,13 @@ export const config = {
   storageDriver: process.env.STORAGE_DRIVER ?? "local",
   azureStorageConnectionString: process.env.AZURE_STORAGE_CONNECTION_STRING,
   azureStorageContainerName: process.env.AZURE_STORAGE_CONTAINER_NAME,
+  // Trailing slashes are stripped since browsers never send a trailing slash
+  // in the `Origin` header, and a mismatch here would otherwise silently
+  // block all cross-origin requests from an otherwise correctly configured
+  // frontend URL.
   corsOrigin: (process.env.CORS_ORIGIN ?? "http://localhost:5173")
     .split(",")
-    .map((s) => s.trim())
+    .map((s) => s.trim().replace(/\/+$/, ""))
     .filter(Boolean),
   imagesPageSizeDefault: 24,
 };
