@@ -213,3 +213,5 @@ output staticWebAppName string = staticWebApp.name
 output staticWebAppHostName string = staticWebApp.properties.defaultHostname
 output storageAccountName string = storage.name
 output dbServerFqdn string = dbServer.properties.fullyQualifiedDomainName
+output dbServerName string = dbServer.name
+output dbAdminUsername string = dbAdminUsername
