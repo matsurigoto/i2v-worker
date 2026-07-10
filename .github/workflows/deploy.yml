@@ -58,6 +58,9 @@ jobs:
       api-app-hostname: ${{ steps.deploy_bicep.outputs.apiAppHostName }}
       static-web-app-name: ${{ steps.deploy_bicep.outputs.staticWebAppName }}
       static-web-app-hostname: ${{ steps.deploy_bicep.outputs.staticWebAppHostName }}
+      db-server-fqdn: ${{ steps.deploy_bicep.outputs.dbServerFqdn }}
+      db-server-name: ${{ steps.deploy_bicep.outputs.dbServerName }}
+      db-admin-username: ${{ steps.deploy_bicep.outputs.dbAdminUsername }}
     steps:
       - uses: actions/checkout@v4
 
@@ -92,12 +95,56 @@ jobs:
           node-version: "20"
           cache: "npm"
 
-      - name: Install & build API
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Install dependencies
+        run: npm install --workspaces --include-workspace-root
+
+      - name: Switch Prisma datasource to PostgreSQL for production build
+        # packages/db/prisma/schema.prisma defaults to `provider = "sqlite"`
+        # for zero-dependency local dev/tests (see docs/architecture.md), but
+        # production runs on Azure Database for PostgreSQL (see
+        # infra/bicep/main.bicep DATABASE_URL). Prisma validates the
+        # DATABASE_URL protocol against the schema's provider, so the
+        # generated client/build used for deployment must target postgresql.
+        run: sed -i 's/provider = "sqlite"/provider = "postgresql"/' packages/db/prisma/schema.prisma
+
+      - name: Build API
         run: |
-          npm install --workspaces --include-workspace-root
           npm run build --workspace=packages/shared
           npm run build --workspace=packages/db
           npm run build --workspace=packages/api
+
+      - name: Allow GitHub runner through PostgreSQL firewall
+        id: allow_runner
+        run: |
+          RUNNER_IP=$(curl -s https://api.ipify.org)
+          echo "ip=$RUNNER_IP" >> "$GITHUB_OUTPUT"
+          az postgres flexible-server firewall-rule create \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --name ${{ needs.deploy-infra.outputs.db-server-name }} \
+            --rule-name AllowGitHubRunner \
+            --start-ip-address "$RUNNER_IP" \
+            --end-ip-address "$RUNNER_IP"
+
+      - name: Apply database schema to PostgreSQL
+        env:
+          DATABASE_URL: postgresql://${{ needs.deploy-infra.outputs.db-admin-username }}:${{ secrets.DB_ADMIN_PASSWORD }}@${{ needs.deploy-infra.outputs.db-server-fqdn }}:5432/i2v
+        run: npx prisma db push --schema=packages/db/prisma/schema.prisma --skip-generate
+
+      - name: Remove temporary PostgreSQL firewall rule
+        if: always()
+        run: |
+          az postgres flexible-server firewall-rule delete \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --name ${{ needs.deploy-infra.outputs.db-server-name }} \
+            --rule-name AllowGitHubRunner \
+            --yes
 
       - name: Assemble self-contained API deployment package
         run: |
@@ -113,13 +160,6 @@ jobs:
           cp -r packages/api/dist /tmp/api-deploy/dist
           cp packages/api/package.json /tmp/api-deploy/package.json
           cp -rL node_modules /tmp/api-deploy/node_modules
-
-      - name: Azure login (OIDC)
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Deploy API to App Service
         uses: azure/webapps-deploy@v3
