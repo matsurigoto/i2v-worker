@@ -123,7 +123,11 @@ jobs:
       - name: Allow GitHub runner through PostgreSQL firewall
         id: allow_runner
         run: |
-          RUNNER_IP=$(curl -s https://api.ipify.org)
+          RUNNER_IP=$(curl -sf https://api.ipify.org)
+          if [ -z "$RUNNER_IP" ]; then
+            echo "::error::Failed to determine the GitHub runner's public IP address" >&2
+            exit 1
+          fi
           echo "ip=$RUNNER_IP" >> "$GITHUB_OUTPUT"
           az postgres flexible-server firewall-rule create \
             --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
