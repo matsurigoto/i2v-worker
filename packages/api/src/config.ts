@@ -1,3 +1,4 @@
+import os from "os";
 import path from "path";
 
 const TRAILING_SLASHES = /\/+$/;
@@ -16,6 +17,12 @@ export const config = {
   mediaRootDir: process.env.MEDIA_ROOT_DIR ?? path.join(process.cwd(), "data", "media"),
   mediaPublicBasePath: process.env.MEDIA_PUBLIC_BASE_PATH ?? "/media",
   storageDriver: process.env.STORAGE_DRIVER ?? "local",
+  // Scratch directory multer writes uploads to before they're streamed to
+  // the configured BlobStorage backend. Using disk (rather than
+  // multer's memoryStorage) avoids holding every uploaded file's full
+  // contents in process memory at once, which risked OOM/502s on the
+  // App Service plan's limited RAM during multi-file uploads.
+  uploadTmpDir: process.env.UPLOAD_TMP_DIR ?? path.join(os.tmpdir(), "i2v-uploads"),
   // Number of hops to trust ahead of the app for `X-Forwarded-For` (e.g. the
   // reverse proxy in front of Azure App Service). Defaults to 1 so that
   // express-rate-limit can correctly derive the client IP without triggering
