@@ -131,8 +131,8 @@ jobs:
           echo "ip=$RUNNER_IP" >> "$GITHUB_OUTPUT"
           az postgres flexible-server firewall-rule create \
             --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
-            --name ${{ needs.deploy-infra.outputs.db-server-name }} \
-            --rule-name AllowGitHubRunner \
+            --server-name ${{ needs.deploy-infra.outputs.db-server-name }} \
+            --name AllowGitHubRunner \
             --start-ip-address "$RUNNER_IP" \
             --end-ip-address "$RUNNER_IP"
 
@@ -146,8 +146,8 @@ jobs:
         run: |
           az postgres flexible-server firewall-rule delete \
             --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
-            --name ${{ needs.deploy-infra.outputs.db-server-name }} \
-            --rule-name AllowGitHubRunner \
+            --server-name ${{ needs.deploy-infra.outputs.db-server-name }} \
+            --name AllowGitHubRunner \
             --yes
 
       - name: Assemble self-contained API deployment package
