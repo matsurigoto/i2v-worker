@@ -19,6 +19,11 @@ fi
 
 SCHEMA_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/prisma/schema.prisma"
 
+if [ ! -f "$SCHEMA_PATH" ]; then
+  echo "Error: schema file not found at $SCHEMA_PATH" >&2
+  exit 1
+fi
+
 if [ "$TARGET" = "sqlite" ]; then
   OTHER="postgresql"
 else
