@@ -10,7 +10,9 @@
     "test": "echo \"no tests in @i2v/db\"",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:deploy": "prisma migrate deploy"
+    "prisma:deploy": "prisma migrate deploy",
+    "db:use-postgres": "bash scripts/switch-provider.sh postgresql",
+    "db:use-sqlite": "bash scripts/switch-provider.sh sqlite"
   },
   "dependencies": {
     "@prisma/client": "^5.19.1"

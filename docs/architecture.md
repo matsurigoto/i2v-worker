@@ -50,7 +50,7 @@ segment 7 = image-to-video(segment 6 影片的最後一幀, 提示詞[6])
 - `ImageAsset`：上傳的圖片，`VideoJob.sourceImageId` 可為 null（刪除圖片後歷史影片仍保留）
 - `QueueMessage`：簡易佇列表，本機/測試環境的佇列實作
 
-> Prisma schema 預設 `provider = "sqlite"`，可在零外部依賴下建置、測試、遷移。正式環境使用 PostgreSQL 時，需將 `datasource db` 的 `provider` 改為 `"postgresql"`，並重新執行 `npm run prisma:migrate --workspace=packages/db`。
+> Prisma schema 預設 `provider = "sqlite"`，可在零外部依賴下建置、測試、遷移。正式環境使用 PostgreSQL 時，需先執行 `npm run db:use-postgres --workspace=packages/db` 將 `datasource db` 的 `provider` 改為 `"postgresql"`，再將 `DATABASE_URL` 指向 PostgreSQL 連線字串（例如 `postgresql://...`），並重新執行 `npm run prisma:migrate --workspace=packages/db`。若忘記切換 `provider` 就對非 `file:` 開頭的 `DATABASE_URL` 執行 Prisma CLI 指令（如 `prisma db push`/`validate`/`migrate`），會出現 `Error validating datasource db: the URL must start with the protocol file:` 錯誤；執行 `npm run db:use-sqlite --workspace=packages/db` 可切回本機 SQLite 開發/測試模式。
 
 ## 儲存與佇列抽象層
 
