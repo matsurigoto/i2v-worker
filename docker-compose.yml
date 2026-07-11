@@ -7,9 +7,13 @@ version: "3.9"
 #
 # NOTE: packages/db/prisma/schema.prisma defaults to `provider = "sqlite"`
 # for zero-dependency local dev/tests. To actually exercise Postgres via this
-# compose file, switch the schema's datasource provider to "postgresql" and
-# run `npm run prisma:migrate --workspace=packages/db` once against
-# DATABASE_URL below.
+# compose file, first run `npm run db:use-postgres --workspace=packages/db`
+# to switch the schema's datasource provider to "postgresql", then run
+# `npm run prisma:migrate --workspace=packages/db` once against DATABASE_URL
+# below (a plain `postgresql://...` URL). Forgetting the provider switch is
+# what causes Prisma's "the URL must start with the protocol `file:`" error.
+# Run `npm run db:use-sqlite --workspace=packages/db` to switch back for
+# local sqlite dev/tests.
 services:
   postgres:
     image: postgres:16-alpine
