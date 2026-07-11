@@ -35,6 +35,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Switch Prisma datasource to PostgreSQL for production build
+        # packages/db/prisma/schema.prisma defaults to `provider = "sqlite"`
+        # for zero-dependency local dev/tests (see docs/architecture.md), but
+        # production runs on Azure Database for PostgreSQL (see
+        # infra/bicep/main.bicep DATABASE_URL). The worker image bundles a
+        # generated Prisma client, so it must be built against the
+        # postgresql provider or the worker container crashes on boot with
+        # "the URL must start with the protocol `file:`".
+        run: bash packages/db/scripts/switch-provider.sh postgresql
+
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
