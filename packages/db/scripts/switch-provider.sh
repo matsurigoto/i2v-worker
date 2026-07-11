@@ -26,12 +26,20 @@ else
 fi
 
 # Tolerate incidental whitespace differences around `=` while only
-# matching the datasource provider line.
-sed -i.bak -E "s/^([[:space:]]*provider[[:space:]]*=[[:space:]]*)\"${OTHER}\"/\\1\"${TARGET}\"/" "$SCHEMA_PATH"
-rm -f "${SCHEMA_PATH}.bak"
+# matching the datasource provider line. Writes to a temp file and moves
+# it into place instead of using `sed -i`, whose in-place flag syntax
+# differs between GNU sed (Linux) and BSD sed (macOS).
+TMP_FILE="$(mktemp)"
+sed -E "s/^([[:space:]]*provider[[:space:]]*=[[:space:]]*)\"${OTHER}\"/\\1\"${TARGET}\"/" "$SCHEMA_PATH" > "$TMP_FILE"
+mv "$TMP_FILE" "$SCHEMA_PATH"
 
 if ! grep -qE "^[[:space:]]*provider[[:space:]]*=[[:space:]]*\"${TARGET}\"" "$SCHEMA_PATH"; then
-  echo "::error::Failed to switch $SCHEMA_PATH provider to \"$TARGET\" (pattern not found or already set to something else)" >&2
+  MESSAGE="Failed to switch $SCHEMA_PATH provider to \"$TARGET\" (pattern not found or already set to something else)"
+  if [ -n "${GITHUB_ACTIONS:-}" ]; then
+    echo "::error::$MESSAGE" >&2
+  else
+    echo "Error: $MESSAGE" >&2
+  fi
   exit 1
 fi
 
