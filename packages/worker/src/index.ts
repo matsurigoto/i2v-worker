@@ -21,8 +21,11 @@ async function tick(): Promise<boolean> {
   const message = await claimNextMessage(prisma);
   if (!message) return false;
 
+  const startedAt = Date.now();
   // eslint-disable-next-line no-console
-  console.log(`[worker] processing VideoJob ${message.videoJobId}`);
+  console.log(
+    `[worker] processing VideoJob ${message.videoJobId} (queue message ${message.id})`,
+  );
   try {
     await runVideoJob(
       {
@@ -36,10 +39,15 @@ async function tick(): Promise<boolean> {
       message.videoJobId,
     );
     // eslint-disable-next-line no-console
-    console.log(`[worker] finished VideoJob ${message.videoJobId}`);
+    console.log(
+      `[worker] finished VideoJob ${message.videoJobId} in ${Date.now() - startedAt}ms`,
+    );
   } catch (err) {
     // eslint-disable-next-line no-console
-    console.error(`[worker] VideoJob ${message.videoJobId} failed:`, err);
+    console.error(
+      `[worker] VideoJob ${message.videoJobId} failed after ${Date.now() - startedAt}ms:`,
+      err,
+    );
   }
   return true;
 }
@@ -48,7 +56,14 @@ async function main() {
   // eslint-disable-next-line no-console
   console.log("[worker] starting i2v-worker poll loop");
   for (;;) {
-    const processed = await tick();
+    let processed: boolean;
+    try {
+      processed = await tick();
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("[worker] unexpected error while polling for work:", err);
+      processed = false;
+    }
     if (!processed) {
       await sleep(config.workerTickMs);
     }

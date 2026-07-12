@@ -42,6 +42,8 @@ export async function runVideoJob(
 ): Promise<void> {
   const { prisma, storage, paasClient } = deps;
 
+  // eslint-disable-next-line no-console
+  console.log(`[worker] [job ${videoJobId}] loading job, story prompts and source image`);
   const job = await prisma.videoJob.findUnique({
     where: { id: videoJobId },
     include: { story: { include: { prompts: true } }, sourceImage: true },
@@ -66,11 +68,18 @@ export async function runVideoJob(
     throw new Error(`Story ${job.storyId} does not have ${SEGMENT_COUNT} prompts`);
   }
 
+  // eslint-disable-next-line no-console
+  console.log(
+    `[worker] [job ${videoJobId}] downloading source image from storage key "${job.sourceImage.storageKey}"`,
+  );
   let currentImageBuffer = await storage.get(job.sourceImage.storageKey);
   let currentContentType = job.sourceImage.contentType;
   let anySucceeded = false;
 
   for (let seq = 1; seq <= SEGMENT_COUNT; seq += 1) {
+    const segmentStartedAt = Date.now();
+    // eslint-disable-next-line no-console
+    console.log(`[worker] [job ${videoJobId}] segment ${seq}/${SEGMENT_COUNT}: starting`);
     const segment = await prisma.videoSegment.upsert({
       where: { videoJobId_seq: { videoJobId: job.id, seq } },
       update: { status: "processing", errorMessage: null },
@@ -79,6 +88,10 @@ export async function runVideoJob(
 
     try {
       const imagePayload = bufferToDataUrl(currentImageBuffer, currentContentType);
+      // eslint-disable-next-line no-console
+      console.log(
+        `[worker] [job ${videoJobId}] segment ${seq}/${SEGMENT_COUNT}: creating PAAS image-to-video task`,
+      );
       const { id: apiTaskId } = await paasClient.createImageToVideoTask({
         image: imagePayload,
         prompt: prompts[seq - 1],
@@ -87,6 +100,10 @@ export async function runVideoJob(
         numFrames: deps.imageToVideoDefaults?.numFrames,
         resolution: deps.imageToVideoDefaults?.resolution,
       });
+      // eslint-disable-next-line no-console
+      console.log(
+        `[worker] [job ${videoJobId}] segment ${seq}/${SEGMENT_COUNT}: created PAAS task ${apiTaskId}, polling for completion`,
+      );
 
       await prisma.videoSegment.update({
         where: { id: segment.id },
@@ -96,6 +113,12 @@ export async function runVideoJob(
       const task = await paasClient.pollTaskUntilDone(apiTaskId, {
         intervalMs: deps.pollIntervalMs,
         timeoutMs: deps.pollTimeoutMs,
+        onPoll: (polled) => {
+          // eslint-disable-next-line no-console
+          console.log(
+            `[worker] [job ${videoJobId}] segment ${seq}/${SEGMENT_COUNT}: PAAS task ${apiTaskId} status=${polled.status}`,
+          );
+        },
       });
 
       const videoUrl = task.results?.data?.video?.url;
@@ -103,14 +126,26 @@ export async function runVideoJob(
         throw new Error(`PAAS task ${apiTaskId} completed without a video URL`);
       }
 
+      // eslint-disable-next-line no-console
+      console.log(
+        `[worker] [job ${videoJobId}] segment ${seq}/${SEGMENT_COUNT}: PAAS task ${apiTaskId} completed, downloading video from ${videoUrl}`,
+      );
       const videoBuffer = await downloadToBuffer(videoUrl);
       const videoStorageKey = `videos/${job.id}/${seq}.mp4`;
+      // eslint-disable-next-line no-console
+      console.log(
+        `[worker] [job ${videoJobId}] segment ${seq}/${SEGMENT_COUNT}: uploading video (${formatBytes(videoBuffer.length)}) to "${videoStorageKey}"`,
+      );
       await storage.put(videoStorageKey, videoBuffer, "video/mp4");
 
       const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "i2v-segment-"));
       const tmpVideoPath = path.join(tmpDir, "segment.mp4");
       try {
         await fs.writeFile(tmpVideoPath, videoBuffer);
+        // eslint-disable-next-line no-console
+        console.log(
+          `[worker] [job ${videoJobId}] segment ${seq}/${SEGMENT_COUNT}: extracting thumbnail and last frame`,
+        );
         const [thumbnailBuffer, lastFrameBuffer] = await Promise.all([
           extractFirstFrame(tmpVideoPath),
           extractLastFrame(tmpVideoPath),
@@ -131,11 +166,20 @@ export async function runVideoJob(
         currentImageBuffer = lastFrameBuffer;
         currentContentType = "image/png";
         anySucceeded = true;
+        // eslint-disable-next-line no-console
+        console.log(
+          `[worker] [job ${videoJobId}] segment ${seq}/${SEGMENT_COUNT}: completed in ${Date.now() - segmentStartedAt}ms`,
+        );
       } finally {
         await fs.rm(tmpDir, { recursive: true, force: true });
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
+      // eslint-disable-next-line no-console
+      console.error(
+        `[worker] [job ${videoJobId}] segment ${seq}/${SEGMENT_COUNT}: failed after ${Date.now() - segmentStartedAt}ms:`,
+        err,
+      );
       await prisma.videoSegment.update({
         where: { id: segment.id },
         data: { status: "failed", errorMessage: message },
@@ -144,9 +188,19 @@ export async function runVideoJob(
         where: { id: job.id },
         data: { status: anySucceeded ? "partial" : "failed" },
       });
+      // eslint-disable-next-line no-console
+      console.log(
+        `[worker] [job ${videoJobId}] marked as ${anySucceeded ? "partial" : "failed"} due to segment ${seq} failure`,
+      );
       return;
     }
   }
 
   await prisma.videoJob.update({ where: { id: job.id }, data: { status: "completed" } });
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
