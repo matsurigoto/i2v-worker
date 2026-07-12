@@ -79,23 +79,31 @@ export class PaasApiClient {
   async createImageToVideoTask(
     params: ImageToVideoParams,
   ): Promise<CreateTaskResponse> {
-    const { data } = await this.http.post("/api/v3/tasks", {
-      payload: {
-        image: params.image,
-        prompt: params.prompt,
-        fps: params.fps,
-        numFrames: params.numFrames,
-        resolution: params.resolution,
-        seed: params.seed,
-        model: params.model,
-      },
-    });
-    return { id: data.id };
+    try {
+      const { data } = await this.http.post("/api/v3/tasks", {
+        payload: {
+          image: params.image,
+          prompt: params.prompt,
+          fps: params.fps,
+          numFrames: params.numFrames,
+          resolution: params.resolution,
+          seed: params.seed,
+          model: params.model,
+        },
+      });
+      return { id: data.id };
+    } catch (err) {
+      throw wrapAxiosError("create image-to-video task", err);
+    }
   }
 
   async getTask(taskId: string): Promise<PaasTask> {
-    const { data } = await this.http.get(`/api/v3/tasks/${taskId}`);
-    return data as PaasTask;
+    try {
+      const { data } = await this.http.get(`/api/v3/tasks/${taskId}`);
+      return data as PaasTask;
+    } catch (err) {
+      throw wrapAxiosError(`get task ${taskId}`, err);
+    }
   }
 
   /**
@@ -136,4 +144,28 @@ export class PaasApiClient {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Wraps axios errors with the HTTP status and response body so callers'
+ * logs include enough detail to diagnose PAAS API failures (axios errors
+ * otherwise print as a generic "Request failed with status code 4xx/5xx"
+ * with no indication of *why* the request was rejected).
+ */
+function wrapAxiosError(action: string, err: unknown): Error {
+  if (axios.isAxiosError(err)) {
+    const status = err.response?.status;
+    let body = err.response?.statusText ?? "";
+    if (err.response?.data) {
+      try {
+        body = JSON.stringify(err.response.data);
+      } catch {
+        body = String(err.response.data);
+      }
+    }
+    return new Error(`Failed to ${action}: HTTP ${status ?? "?"} - ${body}`);
+  }
+  return new Error(
+    `Failed to ${action}: ${err instanceof Error ? err.message : String(err)}`,
+  );
 }
