@@ -189,9 +189,16 @@ resource workerApp 'Microsoft.App/containerApps@2024-03-01' = {
           ]
         }
       ]
+      // i2v-worker runs a continuous DB-polling loop (see
+      // packages/worker/src/index.ts), not an event-driven queue consumer, so
+      // it must never scale to zero: with minReplicas 0 and no scale rules,
+      // Azure Container Apps creates a KEDA ScaledObject with no triggers
+      // (KEDA "ScaledObjectCheckFailed: no triggers defined" warning) that
+      // can never scale the app back up, leaving queued video jobs stuck and
+      // conversions failing. Keep exactly one always-on replica instead.
       scale: {
-        minReplicas: 0
-        maxReplicas: 2
+        minReplicas: 1
+        maxReplicas: 1
       }
     }
   }
