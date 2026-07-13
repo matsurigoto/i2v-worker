@@ -92,14 +92,20 @@ export async function runVideoJob(
       console.log(
         `[worker] [job ${videoJobId}] segment ${seq}/${SEGMENT_COUNT}: creating PAAS image-to-video task`,
       );
-      const { id: apiTaskId } = await paasClient.createImageToVideoTask({
+      const taskParams = {
         image: imagePayload,
         prompt: prompts[seq - 1],
         model: deps.imageToVideoDefaults?.model,
         fps: deps.imageToVideoDefaults?.fps,
         numFrames: deps.imageToVideoDefaults?.numFrames,
         resolution: deps.imageToVideoDefaults?.resolution,
-      });
+      };
+      // eslint-disable-next-line no-console
+      console.log(
+        `[worker] [job ${videoJobId}] segment ${seq}/${SEGMENT_COUNT}: PAAS task params:`,
+        JSON.stringify({ ...taskParams, image: taskParams.image.slice(0, 80) + "..." }),
+      );
+      const { id: apiTaskId } = await paasClient.createImageToVideoTask(taskParams);
       // eslint-disable-next-line no-console
       console.log(
         `[worker] [job ${videoJobId}] segment ${seq}/${SEGMENT_COUNT}: created PAAS task ${apiTaskId}, polling for completion`,
