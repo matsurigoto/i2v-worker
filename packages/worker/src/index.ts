@@ -54,6 +54,8 @@ async function tick(): Promise<boolean> {
 
 async function main() {
   // eslint-disable-next-line no-console
+  console.log(`[worker] PAAS API URL: ${config.paasApiBaseUrl}`);
+  // eslint-disable-next-line no-console
   console.log("[worker] starting i2v-worker poll loop");
   for (;;) {
     let processed: boolean;
