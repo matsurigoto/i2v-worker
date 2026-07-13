@@ -154,16 +154,23 @@ function sleep(ms: number): Promise<void> {
  */
 function wrapAxiosError(action: string, err: unknown): Error {
   if (axios.isAxiosError(err)) {
-    const status = err.response?.status;
-    let body = err.response?.statusText ?? "";
-    if (err.response?.data) {
+    if (!err.response) {
+      // No response received – network error, DNS failure, timeout, etc.
+      const code = err.code ? ` [${err.code}]` : "";
+      return new Error(
+        `Failed to ${action}: no response received${code} - ${err.message}`,
+      );
+    }
+    const status = err.response.status;
+    let body = err.response.statusText ?? "";
+    if (err.response.data) {
       try {
         body = JSON.stringify(err.response.data);
       } catch {
         body = String(err.response.data);
       }
     }
-    return new Error(`Failed to ${action}: HTTP ${status ?? "?"} - ${body}`);
+    return new Error(`Failed to ${action}: HTTP ${status} - ${body}`);
   }
   return new Error(
     `Failed to ${action}: ${err instanceof Error ? err.message : String(err)}`,
