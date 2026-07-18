@@ -221,6 +221,13 @@ storiesRouter.post("/import", async (req, res) => {
       errors.push(`prompts must be an array of exactly ${SEGMENT_COUNT} non-empty strings`);
     }
 
+    if (item?.seriesId != null) {
+      const series = await prisma.series.findUnique({ where: { id: item.seriesId } });
+      if (!series) {
+        errors.push(`seriesId '${item.seriesId}' references a series that does not exist`);
+      }
+    }
+
     if (errors.length > 0) {
       result.errors.push({ index, name: item?.name, errors });
       continue;
