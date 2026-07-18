@@ -55,6 +55,7 @@ export interface Story {
   prompts: string[]; // length === SEGMENT_COUNT, ordered seq 1..7
   createdAt: string;
   updatedAt: string;
+  videoJobCount?: number;
 }
 
 export interface StoryImportItem {

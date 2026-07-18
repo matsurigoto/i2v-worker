@@ -20,6 +20,7 @@ export interface Story {
   prompts: string[];
   createdAt: string;
   updatedAt: string;
+  videoJobCount?: number;
 }
 
 export interface StoryListResponse {
