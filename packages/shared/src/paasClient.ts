@@ -77,6 +77,7 @@ export class PaasApiClient {
   ): Promise<CreateTaskResponse> {
     try {
       const { data } = await this.http.post("/api/v3/tasks", {
+        type: "image-to-video",
         payload: {
           image: params.image,
           prompt: params.prompt,
