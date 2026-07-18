@@ -21,6 +21,8 @@ export default function StoryDetailPage() {
   const [previewError, setPreviewError] = useState(false);
   const [editingSeriesId, setEditingSeriesId] = useState<string | null | undefined>(undefined);
   const [seriesUpdateError, setSeriesUpdateError] = useState<string | null>(null);
+  const [editingPrompts, setEditingPrompts] = useState<string[] | null>(null);
+  const [promptsUpdateError, setPromptsUpdateError] = useState<string | null>(null);
   const selectedImage = images.find((img) => img.id === selectedImageId) ?? null;
 
   async function refresh() {
@@ -95,6 +97,22 @@ export default function StoryDetailPage() {
     }
   }
 
+  async function handlePromptsSave() {
+    if (!id || !editingPrompts) return;
+    setPromptsUpdateError(null);
+    if (editingPrompts.some((p) => !p.trim())) {
+      setPromptsUpdateError(`必須填寫全部 ${SEGMENT_COUNT} 個提示詞`);
+      return;
+    }
+    try {
+      await api.updateStory(id, { prompts: editingPrompts });
+      setEditingPrompts(null);
+      refresh();
+    } catch {
+      setPromptsUpdateError("更新提示詞失敗");
+    }
+  }
+
   return (
     <div>
       <h2>{story.name}</h2>
@@ -143,12 +161,54 @@ export default function StoryDetailPage() {
       </p>
 
       <div className="card">
-        <h3>七段提示詞</h3>
-        <ol>
-          {story.prompts.map((p, i) => (
-            <li key={i}>{p}</li>
-          ))}
-        </ol>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <h3 style={{ margin: 0 }}>七段提示詞</h3>
+          {editingPrompts === null && (
+            <button
+              className="btn"
+              style={{ fontSize: "0.8rem", padding: "0.1rem 0.5rem" }}
+              onClick={() => setEditingPrompts([...story.prompts])}
+            >
+              編輯提示詞
+            </button>
+          )}
+        </div>
+        {editingPrompts === null ? (
+          <ol>
+            {story.prompts.map((p, i) => (
+              <li key={i}>{p}</li>
+            ))}
+          </ol>
+        ) : (
+          <div style={{ marginTop: "0.5rem" }}>
+            {editingPrompts.map((p, i) => (
+              <div style={{ marginBottom: "0.5rem" }} key={i}>
+                <label>提示詞 {i + 1}</label>
+                <input
+                  type="text"
+                  value={p}
+                  onChange={(e) => {
+                    const prompts = [...editingPrompts];
+                    prompts[i] = e.target.value;
+                    setEditingPrompts(prompts);
+                  }}
+                />
+              </div>
+            ))}
+            {promptsUpdateError && <p className="error-text">{promptsUpdateError}</p>}
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              <button className="btn primary" onClick={handlePromptsSave}>
+                儲存提示詞
+              </button>
+              <button
+                className="btn"
+                onClick={() => { setEditingPrompts(null); setPromptsUpdateError(null); }}
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="card">
