@@ -1,9 +1,22 @@
 export const SEGMENT_COUNT = 7;
 
+export interface Series {
+  id: string;
+  name: string;
+  description: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SeriesListResponse {
+  items: Series[];
+}
+
 export interface Story {
   id: string;
   name: string;
   description: string;
+  seriesId: string | null;
   prompts: string[];
   createdAt: string;
   updatedAt: string;

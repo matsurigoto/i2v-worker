@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { api } from "../api/client";
-import { ImageAsset, SEGMENT_COUNT, Story, VideoJob, VideoSegment } from "../types";
+import { ImageAsset, SEGMENT_COUNT, Series, Story, VideoJob, VideoSegment } from "../types";
 
 const VIDEO_CHAIN_EXPLANATION =
   "PAAS API 僅提供 image-to-video，沒有 video-to-video。第 2~7 段影片，是由前一段影片擷取最後一幀畫面(ffmpeg)做為新的 image 輸入，" +
@@ -12,12 +12,15 @@ export default function StoryDetailPage() {
   const [story, setStory] = useState<Story | null>(null);
   const [jobs, setJobs] = useState<VideoJob[]>([]);
   const [images, setImages] = useState<ImageAsset[]>([]);
+  const [seriesList, setSeriesList] = useState<Series[]>([]);
   const [selectedImageId, setSelectedImageId] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [triggering, setTriggering] = useState(false);
   const [fullscreen, setFullscreen] = useState<{ job: VideoJob; seq: number } | null>(null);
   const [previewError, setPreviewError] = useState(false);
+  const [editingSeriesId, setEditingSeriesId] = useState<string | null | undefined>(undefined);
+  const [seriesUpdateError, setSeriesUpdateError] = useState<string | null>(null);
   const selectedImage = images.find((img) => img.id === selectedImageId) ?? null;
 
   async function refresh() {
@@ -36,6 +39,7 @@ export default function StoryDetailPage() {
   useEffect(() => {
     refresh();
     api.listImages(1, 100).then((res) => setImages(res.items));
+    api.listSeries().then((res) => setSeriesList(res.items));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -75,10 +79,68 @@ export default function StoryDetailPage() {
   if (loading) return <p>載入中…</p>;
   if (!story) return <p className="error-text">找不到故事</p>;
 
+  const currentSeriesName = story.seriesId
+    ? (seriesList.find((s) => s.id === story.seriesId)?.name ?? "未知系列")
+    : "預設";
+
+  async function handleSeriesSave() {
+    if (!id) return;
+    setSeriesUpdateError(null);
+    try {
+      await api.updateStory(id, { seriesId: editingSeriesId ?? null });
+      setEditingSeriesId(undefined);
+      refresh();
+    } catch {
+      setSeriesUpdateError("更新系列失敗");
+    }
+  }
+
   return (
     <div>
       <h2>{story.name}</h2>
       <p style={{ color: "#666" }}>{story.description}</p>
+      <p style={{ fontSize: "0.85rem", color: "#888" }}>
+        系列：{currentSeriesName}{" "}
+        {editingSeriesId === undefined ? (
+          <button
+            className="btn"
+            style={{ fontSize: "0.8rem", padding: "0.1rem 0.5rem" }}
+            onClick={() => setEditingSeriesId(story.seriesId)}
+          >
+            變更
+          </button>
+        ) : (
+          <>
+            <select
+              value={editingSeriesId ?? ""}
+              onChange={(e) => setEditingSeriesId(e.target.value || null)}
+              style={{ fontSize: "0.85rem" }}
+            >
+              <option value="">預設（無系列）</option>
+              {seriesList.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>{" "}
+            <button
+              className="btn primary"
+              style={{ fontSize: "0.8rem", padding: "0.1rem 0.5rem" }}
+              onClick={handleSeriesSave}
+            >
+              儲存
+            </button>{" "}
+            <button
+              className="btn"
+              style={{ fontSize: "0.8rem", padding: "0.1rem 0.5rem" }}
+              onClick={() => { setEditingSeriesId(undefined); setSeriesUpdateError(null); }}
+            >
+              取消
+            </button>
+            {seriesUpdateError && <span className="error-text"> {seriesUpdateError}</span>}
+          </>
+        )}
+      </p>
 
       <div className="card">
         <h3>七段提示詞</h3>

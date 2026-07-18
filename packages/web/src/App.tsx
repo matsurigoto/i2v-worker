@@ -5,6 +5,7 @@ import LoginPage from "./pages/LoginPage";
 import StoriesPage from "./pages/StoriesPage";
 import StoryDetailPage from "./pages/StoryDetailPage";
 import ImagesPage from "./pages/ImagesPage";
+import SeriesPage from "./pages/SeriesPage";
 
 function ProtectedShell({ children }: { children: React.ReactNode }) {
   const { username, loading, logout } = useAuth();
@@ -21,6 +22,7 @@ function ProtectedShell({ children }: { children: React.ReactNode }) {
       <div className={`nav-overlay${navOpen ? " open" : ""}`} onClick={() => setNavOpen(false)} />
       <nav className={`app-nav${navOpen ? " open" : ""}`}>
         <h1>i2v Story Studio</h1>
+        <NavLink to="/series" onClick={() => setNavOpen(false)}>系列管理</NavLink>
         <NavLink to="/stories" onClick={() => setNavOpen(false)}>故事維護</NavLink>
         <NavLink to="/images" onClick={() => setNavOpen(false)}>圖片管理</NavLink>
         <div style={{ marginTop: "2rem", fontSize: "0.8rem", color: "#9aa4b2" }}>
@@ -39,6 +41,14 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route
+        path="/series"
+        element={
+          <ProtectedShell>
+            <SeriesPage />
+          </ProtectedShell>
+        }
+      />
       <Route
         path="/stories"
         element={
