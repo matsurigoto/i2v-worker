@@ -18,11 +18,9 @@ export const config = {
   azureStorageConnectionString: process.env.AZURE_STORAGE_CONNECTION_STRING,
   azureStorageContainerName: process.env.AZURE_STORAGE_CONTAINER_NAME,
   imageToVideo: {
-    model: process.env.IMAGE_TO_VIDEO_MODEL || undefined,
-    fps: process.env.IMAGE_TO_VIDEO_FPS ? num("IMAGE_TO_VIDEO_FPS", 0) : undefined,
-    numFrames: process.env.IMAGE_TO_VIDEO_NUM_FRAMES
-      ? num("IMAGE_TO_VIDEO_NUM_FRAMES", 0)
-      : undefined,
-    resolution: process.env.IMAGE_TO_VIDEO_RESOLUTION || undefined,
+    model: process.env.IMAGE_TO_VIDEO_MODEL || "wan-2.2",
+    fps: num("IMAGE_TO_VIDEO_FPS", 16),
+    numFrames: num("IMAGE_TO_VIDEO_NUM_FRAMES", 81),
+    resolution: process.env.IMAGE_TO_VIDEO_RESOLUTION || "480p",
   },
 };
