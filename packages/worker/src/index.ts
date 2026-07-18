@@ -14,7 +14,6 @@ const storage = createStorageFromEnv({
 });
 const paasClient = new PaasApiClient({
   baseUrl: config.paasApiBaseUrl,
-  apiKey: config.paasApiKey,
 });
 
 async function tick(): Promise<boolean> {

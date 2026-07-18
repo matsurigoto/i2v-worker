@@ -1,0 +1,176 @@
+{
+	"info": {
+		"_postman_id": "i2v-paas-collection",
+		"name": "I2V PAAS API",
+		"description": "Image-to-Video PAAS API requests used by i2v-worker.\n\nVariables:\n- `baseUrl`: PAAS API base URL (format: https://{username}:{password}@api.artworks.ai)\n- `taskId`: Populated automatically after creating a task",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "https://username:password@api.artworks.ai",
+			"type": "string"
+		},
+		{
+			"key": "taskId",
+			"value": "",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "Create Image-to-Video Task",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"if (pm.response.code === 200 || pm.response.code === 201) {",
+							"    const jsonData = pm.response.json();",
+							"    pm.collectionVariables.set('taskId', jsonData.id);",
+							"    pm.test('Task created successfully', function () {",
+							"        pm.expect(jsonData.id).to.be.a('string');",
+							"    });",
+							"}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Accept",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"type\": \"image-to-video\",\n  \"payload\": {\n    \"image\": \"data:image/png;base64,<BASE64_IMAGE_DATA>\",\n    \"prompt\": \"A cat walking gracefully across the room\",\n    \"model\": \"wan-2.2\",\n    \"fps\": 16,\n    \"numFrames\": 81,\n    \"resolution\": \"480p\"\n  }\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/v3/tasks",
+					"host": ["{{baseUrl}}"],
+					"path": ["api", "v3", "tasks"]
+				},
+				"description": "Create an image-to-video task.\n\n**Required fields:**\n- `type`: `\"image-to-video\"`\n- `payload.image`: base64 data URL or https:// URL\n- `payload.prompt`: text prompt describing the desired video\n\n**Optional fields:**\n- `payload.model`: `\"wan-2.2\"` (default) or `\"ltx-2.3\"`\n- `payload.fps`: 8–24 (default: 16)\n- `payload.numFrames`: 24–361 (default: 16)\n- `payload.resolution`: `\"480p\"` | `\"720p\"` | `\"1080p\"` (default: `\"480p\"`)\n- `payload.seed`: integer for reproducibility\n- `payload.performance`: `\"speed\"` | `\"quality\"` | `\"express\"` (default: `\"speed\"`)"
+			},
+			"response": []
+		},
+		{
+			"name": "Create Image-to-Video Task (URL image)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"if (pm.response.code === 200 || pm.response.code === 201) {",
+							"    const jsonData = pm.response.json();",
+							"    pm.collectionVariables.set('taskId', jsonData.id);",
+							"    pm.test('Task created successfully', function () {",
+							"        pm.expect(jsonData.id).to.be.a('string');",
+							"    });",
+							"}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Accept",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"type\": \"image-to-video\",\n  \"payload\": {\n    \"image\": \"https://example.com/your-image.png\",\n    \"prompt\": \"A cat walking gracefully across the room\",\n    \"model\": \"wan-2.2\",\n    \"fps\": 16,\n    \"numFrames\": 81,\n    \"resolution\": \"480p\"\n  }\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/v3/tasks",
+					"host": ["{{baseUrl}}"],
+					"path": ["api", "v3", "tasks"]
+				},
+				"description": "Same as 'Create Image-to-Video Task' but uses an HTTPS URL for the image instead of base64."
+			},
+			"response": []
+		},
+		{
+			"name": "Get Task Status",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"const jsonData = pm.response.json();",
+							"",
+							"pm.test('Task has a status', function () {",
+							"    pm.expect(jsonData.status).to.be.a('string');",
+							"});",
+							"",
+							"pm.test('Status is a valid value', function () {",
+							"    pm.expect(jsonData.status).to.be.oneOf([",
+							"        'pending', 'preparing', 'processing',",
+							"        'completed', 'failed', 'canceled', 'timeout', 'unknown'",
+							"    ]);",
+							"});",
+							"",
+							"if (jsonData.status === 'completed') {",
+							"    pm.test('Completed task has video URL', function () {",
+							"        pm.expect(jsonData.results.data.video.url).to.be.a('string');",
+							"    });",
+							"}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/json"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/api/v3/tasks/{{taskId}}",
+					"host": ["{{baseUrl}}"],
+					"path": ["api", "v3", "tasks", "{{taskId}}"]
+				},
+				"description": "Poll the status of a task.\n\n**Terminal statuses:** `completed`, `failed`, `canceled`, `timeout`\n\nWhen `status` is `completed`, the video URL is at `results.data.video.url`."
+			},
+			"response": []
+		},
+		{
+			"name": "Cancel Task",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/json"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/api/v3/tasks/{{taskId}}/cancel",
+					"host": ["{{baseUrl}}"],
+					"path": ["api", "v3", "tasks", "{{taskId}}", "cancel"]
+				},
+				"description": "Cancel a running task."
+			},
+			"response": []
+		}
+	]
+}

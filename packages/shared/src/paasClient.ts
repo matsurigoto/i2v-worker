@@ -3,7 +3,6 @@ import { PaasTaskStatus, isTerminalPaasStatus } from "./types";
 
 export interface PaasClientOptions {
   baseUrl: string;
-  apiKey?: string;
   timeoutMs?: number;
 }
 
@@ -70,9 +69,6 @@ export class PaasApiClient {
     this.http = axios.create({
       baseURL: options.baseUrl,
       timeout: options.timeoutMs ?? 30_000,
-      headers: options.apiKey
-        ? { Authorization: "Bearer " + options.apiKey }
-        : undefined,
     });
   }
 
