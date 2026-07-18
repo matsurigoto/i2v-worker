@@ -74,7 +74,7 @@ resource mediaContainer 'Microsoft.Storage/storageAccounts/blobServices/containe
   parent: blobService
   name: 'media'
   properties: {
-    publicAccess: 'None'
+    publicAccess: 'Blob'
   }
 }
 
