@@ -6,6 +6,7 @@ import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { config } from "./config";
 import { authRouter } from "./routes/auth";
 import { storiesRouter } from "./routes/stories";
+import { seriesRouter } from "./routes/series";
 import { imagesRouter } from "./routes/images";
 import { videoJobsRouter, storyVideoJobsRouter } from "./routes/videoJobs";
 import { requireAuth } from "./middleware/auth";
@@ -82,6 +83,7 @@ export function createApp() {
   app.use("/api/auth", authLimiter, authRouter);
 
   // Everything below requires an authenticated session.
+  app.use("/api/series", apiLimiter, requireAuth, seriesRouter);
   app.use("/api/stories", apiLimiter, requireAuth, storiesRouter);
   app.use("/api/stories/:storyId/videojobs", apiLimiter, requireAuth, storyVideoJobsRouter);
   app.use("/api/images", apiLimiter, requireAuth, imagesRouter);

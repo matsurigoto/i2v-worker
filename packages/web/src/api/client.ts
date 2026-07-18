@@ -1,5 +1,7 @@
 import type {
   ImageListResponse,
+  Series,
+  SeriesListResponse,
   Story,
   StoryImportResult,
   StoryListResponse,
@@ -47,16 +49,18 @@ export const api = {
   logout: () => request<void>("/api/auth/logout", { method: "POST" }),
   me: () => request<{ username: string }>("/api/auth/me"),
 
-  listStories: (page = 1, pageSize = 20, q?: string) =>
-    request<StoryListResponse>(
-      `/api/stories?page=${page}&pageSize=${pageSize}${q ? `&q=${encodeURIComponent(q)}` : ""}`,
-    ),
+  listStories: (page = 1, pageSize = 20, q?: string, seriesId?: string | null) => {
+    const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+    if (q) params.set("q", q);
+    if (seriesId !== undefined) params.set("seriesId", seriesId === null ? "null" : seriesId);
+    return request<StoryListResponse>(`/api/stories?${params.toString()}`);
+  },
   getStory: (id: string) => request<Story>(`/api/stories/${id}`),
-  createStory: (data: { name: string; description: string; prompts: string[] }) =>
+  createStory: (data: { name: string; description: string; seriesId?: string | null; prompts: string[] }) =>
     request<Story>("/api/stories", { method: "POST", body: JSON.stringify(data) }),
   updateStory: (
     id: string,
-    data: Partial<{ name: string; description: string; prompts: string[] }>,
+    data: Partial<{ name: string; description: string; seriesId: string | null; prompts: string[] }>,
   ) => request<Story>(`/api/stories/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   deleteStory: (id: string) => request<void>(`/api/stories/${id}`, { method: "DELETE" }),
   importStories: (items: unknown[]) =>
@@ -64,6 +68,13 @@ export const api = {
       method: "POST",
       body: JSON.stringify(items),
     }),
+
+  listSeries: () => request<SeriesListResponse>("/api/series"),
+  createSeries: (data: { name: string; description: string }) =>
+    request<Series>("/api/series", { method: "POST", body: JSON.stringify(data) }),
+  updateSeries: (id: string, data: Partial<{ name: string; description: string }>) =>
+    request<Series>(`/api/series/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  deleteSeries: (id: string) => request<void>(`/api/series/${id}`, { method: "DELETE" }),
 
   listImages: (page = 1, pageSize = 24) =>
     request<ImageListResponse>(`/api/images?page=${page}&pageSize=${pageSize}`),

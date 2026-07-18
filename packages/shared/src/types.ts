@@ -39,10 +39,19 @@ export function isTerminalPaasStatus(status: PaasTaskStatus): boolean {
   return (PAAS_TERMINAL_STATUSES as string[]).includes(status);
 }
 
+export interface Series {
+  id: string;
+  name: string;
+  description: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Story {
   id: string;
   name: string;
   description: string;
+  seriesId: string | null;
   prompts: string[]; // length === SEGMENT_COUNT, ordered seq 1..7
   createdAt: string;
   updatedAt: string;
@@ -51,6 +60,7 @@ export interface Story {
 export interface StoryImportItem {
   name: string;
   description?: string;
+  seriesId?: string | null;
   prompts: string[];
 }
 

@@ -10,6 +10,7 @@ function toStoryDto(story: {
   id: string;
   name: string;
   description: string;
+  seriesId: string | null;
   createdAt: Date;
   updatedAt: Date;
   prompts: { seq: number; content: string }[];
@@ -24,6 +25,7 @@ function toStoryDto(story: {
     id: story.id,
     name: story.name,
     description: story.description,
+    seriesId: story.seriesId,
     prompts,
     createdAt: story.createdAt.toISOString(),
     updatedAt: story.updatedAt.toISOString(),
@@ -44,10 +46,19 @@ storiesRouter.get("/", async (req, res) => {
   const page = Math.max(1, Number(req.query.page ?? 1));
   const pageSize = Math.min(100, Math.max(1, Number(req.query.pageSize ?? 20)));
   const search = typeof req.query.q === "string" ? req.query.q : undefined;
+  // seriesId=null means stories with no series assigned (預設)
+  const seriesIdParam = req.query.seriesId;
+  const filterBySeriesId =
+    seriesIdParam === "null"
+      ? { seriesId: null }
+      : typeof seriesIdParam === "string"
+        ? { seriesId: seriesIdParam }
+        : {};
 
-  const where = search
-    ? { name: { contains: search } }
-    : {};
+  const where = {
+    ...filterBySeriesId,
+    ...(search ? { name: { contains: search } } : {}),
+  };
 
   const [total, stories] = await Promise.all([
     prisma.story.count({ where }),
@@ -81,7 +92,7 @@ storiesRouter.get("/:id", async (req, res) => {
 });
 
 storiesRouter.post("/", async (req, res) => {
-  const { name, description, prompts } = req.body ?? {};
+  const { name, description, prompts, seriesId } = req.body ?? {};
   if (typeof name !== "string" || name.trim().length === 0) {
     res.status(400).json({ error: "name is required" });
     return;
@@ -94,10 +105,19 @@ storiesRouter.post("/", async (req, res) => {
     return;
   }
 
+  if (seriesId !== undefined && seriesId !== null) {
+    const series = await prisma.series.findUnique({ where: { id: seriesId } });
+    if (!series) {
+      res.status(400).json({ error: "seriesId references a series that does not exist" });
+      return;
+    }
+  }
+
   const story = await prisma.story.create({
     data: {
       name,
       description: description ?? "",
+      seriesId: seriesId ?? null,
       prompts: {
         create: validPrompts.map((content, index) => ({ seq: index + 1, content })),
       },
@@ -108,7 +128,7 @@ storiesRouter.post("/", async (req, res) => {
 });
 
 storiesRouter.put("/:id", async (req, res) => {
-  const { name, description, prompts } = req.body ?? {};
+  const { name, description, prompts, seriesId } = req.body ?? {};
   const existing = await prisma.story.findUnique({ where: { id: req.params.id } });
   if (!existing) {
     res.status(404).json({ error: "Story not found" });
@@ -131,6 +151,15 @@ storiesRouter.put("/:id", async (req, res) => {
     }
   }
 
+  // seriesId: null explicitly unassigns, a string assigns, undefined = no change
+  if (seriesId !== undefined && seriesId !== null) {
+    const series = await prisma.series.findUnique({ where: { id: seriesId } });
+    if (!series) {
+      res.status(400).json({ error: "seriesId references a series that does not exist" });
+      return;
+    }
+  }
+
   const story = await prisma.$transaction(async (tx) => {
     if (validPrompts) {
       await tx.prompt.deleteMany({ where: { storyId: req.params.id } });
@@ -147,6 +176,7 @@ storiesRouter.put("/:id", async (req, res) => {
       data: {
         name: name ?? undefined,
         description: description ?? undefined,
+        ...(seriesId !== undefined ? { seriesId } : {}),
       },
       include: { prompts: true },
     });
@@ -200,6 +230,7 @@ storiesRouter.post("/import", async (req, res) => {
       data: {
         name: item.name as string,
         description: item.description ?? "",
+        seriesId: item.seriesId ?? null,
         prompts: {
           create: (validPrompts as string[]).map((content, i) => ({
             seq: i + 1,
