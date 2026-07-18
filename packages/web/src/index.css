@@ -101,7 +101,7 @@ textarea {
 }
 
 .grid.cols-4 {
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
 }
 
 .image-tile {
@@ -114,14 +114,14 @@ textarea {
 
 .image-tile img {
   width: 100%;
-  height: 140px;
+  height: 200px;
   object-fit: cover;
   display: block;
 }
 
 .image-tile .caption {
   padding: 0.4rem 0.5rem;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   color: #444;
   display: flex;
   justify-content: space-between;
@@ -150,11 +150,12 @@ textarea {
   align-items: center;
   padding: 0.75rem 0;
   border-bottom: 1px solid #eee;
+  flex-wrap: wrap;
 }
 
 .segment-cell {
-  width: 90px;
-  height: 90px;
+  width: 120px;
+  height: 120px;
   border-radius: 6px;
   border: 1px solid #d0d5dd;
   background: #f0f1f4;
@@ -163,9 +164,10 @@ textarea {
   justify-content: center;
   overflow: hidden;
   cursor: pointer;
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   color: #999;
   position: relative;
+  flex-shrink: 0;
 }
 
 .segment-cell img {

@@ -17,6 +17,12 @@ name: Deploy to Azure
 # See docs/architecture.md for the full setup guide.
 
 on:
+  # Auto-deploy after CI passes on main
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+  # Keep manual trigger as fallback
   workflow_dispatch:
 
 permissions:
@@ -28,6 +34,7 @@ env:
 
 jobs:
   build-and-push-worker-image:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: read
