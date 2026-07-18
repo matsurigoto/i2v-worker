@@ -17,6 +17,8 @@ export default function StoryDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [triggering, setTriggering] = useState(false);
   const [fullscreen, setFullscreen] = useState<{ job: VideoJob; seq: number } | null>(null);
+  const [previewError, setPreviewError] = useState(false);
+  const selectedImage = images.find((img) => img.id === selectedImageId) ?? null;
 
   async function refresh() {
     if (!id) return;
@@ -45,6 +47,10 @@ export default function StoryDetailPage() {
     return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobs]);
+
+  useEffect(() => {
+    setPreviewError(false);
+  }, [selectedImageId]);
 
   async function handleTrigger() {
     if (!id || !selectedImageId) return;
@@ -86,21 +92,32 @@ export default function StoryDetailPage() {
       <div className="card">
         <h3>產生影片</h3>
         <p style={{ fontSize: "0.85rem", color: "#555" }}>{VIDEO_CHAIN_EXPLANATION}</p>
-        <select value={selectedImageId} onChange={(e) => setSelectedImageId(e.target.value)}>
-          <option value="">選擇來源圖片…</option>
-          {images.map((img) => (
-            <option key={img.id} value={img.id}>
-              {img.name}
-            </option>
-          ))}
-        </select>{" "}
-        <button
-          className="btn primary"
-          disabled={!selectedImageId || triggering}
-          onClick={handleTrigger}
-        >
-          {triggering ? "觸發中…" : "開始產生七段影片"}
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <select value={selectedImageId} onChange={(e) => setSelectedImageId(e.target.value)}>
+            <option value="">選擇來源圖片…</option>
+            {images.map((img) => (
+              <option key={img.id} value={img.id}>
+                {img.name}
+              </option>
+            ))}
+          </select>
+          {selectedImage && !previewError && (
+            <img
+              className="image-select-preview"
+              src={selectedImage.url}
+              alt={selectedImage.name}
+              title={selectedImage.name}
+              onError={() => setPreviewError(true)}
+            />
+          )}
+          <button
+            className="btn primary"
+            disabled={!selectedImageId || triggering}
+            onClick={handleTrigger}
+          >
+            {triggering ? "觸發中…" : "開始產生七段影片"}
+          </button>
+        </div>
         {error && <p className="error-text">{error}</p>}
       </div>
 

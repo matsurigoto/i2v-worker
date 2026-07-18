@@ -128,6 +128,14 @@ textarea {
   gap: 0.5rem;
 }
 
+.image-select-preview {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid #e2e5ea;
+}
+
 .lightbox-backdrop {
   position: fixed;
   inset: 0;
