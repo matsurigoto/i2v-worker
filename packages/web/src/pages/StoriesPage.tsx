@@ -258,7 +258,10 @@ export default function StoriesPage() {
                 <h3 style={{ margin: 0 }}>
                   <Link to={`/stories/${s.id}`}>{s.name}</Link>
                   {s.videoJobCount !== undefined && (
-                    <span style={{ fontSize: "0.75rem", color: "#888", marginLeft: "0.5rem", fontWeight: "normal" }}>
+                    <span
+                      style={{ fontSize: "0.75rem", color: "#888", marginLeft: "0.5rem", fontWeight: "normal" }}
+                      aria-label={`已產生 ${s.videoJobCount} 批影片`}
+                    >
                       （已產生 {s.videoJobCount} 批影片）
                     </span>
                   )}
