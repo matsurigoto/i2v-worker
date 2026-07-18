@@ -14,6 +14,7 @@ function toStoryDto(story: {
   createdAt: Date;
   updatedAt: Date;
   prompts: { seq: number; content: string }[];
+  _count?: { videoJobs: number };
 }): Story {
   const prompts = new Array<string>(SEGMENT_COUNT).fill("");
   for (const p of story.prompts) {
@@ -29,6 +30,7 @@ function toStoryDto(story: {
     prompts,
     createdAt: story.createdAt.toISOString(),
     updatedAt: story.updatedAt.toISOString(),
+    ...(story._count !== undefined ? { videoJobCount: story._count.videoJobs } : {}),
   };
 }
 
@@ -64,7 +66,7 @@ storiesRouter.get("/", async (req, res) => {
     prisma.story.count({ where }),
     prisma.story.findMany({
       where,
-      include: { prompts: true },
+      include: { prompts: true, _count: { select: { videoJobs: true } } },
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * pageSize,
       take: pageSize,
