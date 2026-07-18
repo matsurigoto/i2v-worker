@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { NavLink, Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
 import LoginPage from "./pages/LoginPage";
@@ -7,16 +8,21 @@ import ImagesPage from "./pages/ImagesPage";
 
 function ProtectedShell({ children }: { children: React.ReactNode }) {
   const { username, loading, logout } = useAuth();
+  const [navOpen, setNavOpen] = useState(false);
 
   if (loading) return <p style={{ padding: "2rem" }}>Loading…</p>;
   if (!username) return <Navigate to="/login" replace />;
 
   return (
     <div className="app-shell">
-      <nav className="app-nav">
+      <button className="nav-toggle" onClick={() => setNavOpen((v) => !v)} aria-label="選單">
+        ☰
+      </button>
+      <div className={`nav-overlay${navOpen ? " open" : ""}`} onClick={() => setNavOpen(false)} />
+      <nav className={`app-nav${navOpen ? " open" : ""}`}>
         <h1>i2v Story Studio</h1>
-        <NavLink to="/stories">故事維護</NavLink>
-        <NavLink to="/images">圖片管理</NavLink>
+        <NavLink to="/stories" onClick={() => setNavOpen(false)}>故事維護</NavLink>
+        <NavLink to="/images" onClick={() => setNavOpen(false)}>圖片管理</NavLink>
         <div style={{ marginTop: "2rem", fontSize: "0.8rem", color: "#9aa4b2" }}>
           已登入：{username}
         </div>

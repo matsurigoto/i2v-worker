@@ -109,7 +109,7 @@ export default function StoryDetailPage() {
         {jobs.length === 0 && <p>尚未產生任何影片。</p>}
         {jobs.map((job) => (
           <div className="segment-row" key={job.id}>
-            <div style={{ width: 160 }}>
+            <div style={{ minWidth: 140, flexShrink: 0 }}>
               <div>{new Date(job.triggeredAt).toLocaleString()}</div>
               <span className={`badge ${job.status}`}>{job.status}</span>
               <div>
