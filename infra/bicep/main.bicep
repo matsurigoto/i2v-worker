@@ -216,10 +216,31 @@ resource staticWebApp 'Microsoft.Web/staticSites@2023-12-01' = {
   name: staticWebAppName
   location: location
   sku: {
-    name: 'Free'
-    tier: 'Free'
+    // Linked backends (below), which reverse-proxy /api/* through the
+    // Static Web App's own origin, require the Standard tier — the Free
+    // tier does not support this feature. This is required so the browser
+    // sees the API as same-origin: iOS Safari/Chrome's Intelligent
+    // Tracking Prevention (ITP) silently drops SameSite=None cross-site
+    // cookies, which otherwise breaks session auth on iPhone even though
+    // it works on desktop browsers.
+    name: 'Standard'
+    tier: 'Standard'
   }
   properties: {}
+}
+
+// Reverse-proxies requests to <staticWebApp>/api/* to the API App Service,
+// so the browser only ever talks to the Static Web App's origin. Without
+// this, the frontend and API live on different origins, forcing the
+// session cookie to be set as SameSite=None, which iOS Safari/Chrome (ITP)
+// silently discard, breaking login persistence on iPhone.
+resource staticWebAppApiBackend 'Microsoft.Web/staticSites/linkedBackends@2023-12-01' = {
+  parent: staticWebApp
+  name: 'api'
+  properties: {
+    backendResourceId: apiApp.id
+    region: location
+  }
 }
 
 output apiAppName string = apiApp.name
