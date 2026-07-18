@@ -55,7 +55,6 @@ services:
     environment:
       DATABASE_URL: postgresql://i2v:${POSTGRES_PASSWORD:-i2v-dev-password}@postgres:5432/i2v
       PAAS_API_BASE_URL: ${PAAS_API_BASE_URL:-https://paas.example.com}
-      PAAS_API_KEY: ${PAAS_API_KEY:-}
       MEDIA_ROOT_DIR: /data/media
       MEDIA_PUBLIC_BASE_PATH: /media
     volumes:

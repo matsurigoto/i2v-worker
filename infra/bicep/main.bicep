@@ -37,6 +37,10 @@ param authUsername string = 'admin'
 @description('bcrypt hash of the auth password. Generate with: node -e "console.log(require(\'bcryptjs\').hashSync(\'yourpassword\', 10))"')
 param authPasswordHash string
 
+@secure()
+@description('Full PAAS API base URL including credentials, e.g. https://user:pass@api.artworks.ai')
+param paasApiBaseUrl string
+
 @description('Hostname only (no protocol) of the Static Web App frontend (e.g. "wonderful-desert-0abc1.azurestaticapps.net"). Used to configure CORS on the API. Leave empty to auto-detect from the deployed Static Web App.')
 param webAppHostname string = ''
 
@@ -174,6 +178,9 @@ resource workerApp 'Microsoft.App/containerApps@2024-03-01' = {
     managedEnvironmentId: containerAppsEnv.id
     configuration: {
       activeRevisionsMode: 'Single'
+      secrets: [
+        { name: 'paas-api-base-url', value: paasApiBaseUrl }
+      ]
     }
     template: {
       containers: [
@@ -186,6 +193,7 @@ resource workerApp 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'AZURE_STORAGE_CONNECTION_STRING', value: 'DefaultEndpointsProtocol=https;AccountName=${storage.name};AccountKey=${storage.listKeys().keys[0].value};EndpointSuffix=core.windows.net' }
             { name: 'AZURE_STORAGE_CONTAINER_NAME', value: 'media' }
             { name: 'AZURE_STORAGE_QUEUE_NAME', value: 'video-jobs' }
+            { name: 'PAAS_API_BASE_URL', secretRef: 'paas-api-base-url' }
           ]
         }
       ]

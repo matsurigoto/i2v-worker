@@ -93,6 +93,7 @@ jobs:
             workerContainerImage=${{ env.WORKER_IMAGE }}
             jwtSecret=${{ secrets.JWT_SECRET }}
             authPasswordHash=${{ secrets.AUTH_PASSWORD_HASH }}
+            paasApiBaseUrl=${{ secrets.PAAS_API_BASE_URL }}
 
   deploy-api:
     runs-on: ubuntu-latest
