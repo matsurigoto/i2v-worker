@@ -162,8 +162,8 @@ textarea {
 }
 
 .segment-cell {
-  width: 120px;
-  height: 120px;
+  width: 160px;
+  height: 160px;
   border-radius: 6px;
   border: 1px solid #d0d5dd;
   background: #f0f1f4;
@@ -250,8 +250,8 @@ textarea {
   }
 
   .segment-cell {
-    width: 100px;
-    height: 100px;
+    width: 140px;
+    height: 140px;
   }
 }
 
