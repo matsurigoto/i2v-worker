@@ -95,6 +95,7 @@ jobs:
           scope: resourcegroup
           resourceGroupName: ${{ secrets.AZURE_RESOURCE_GROUP }}
           template: infra/bicep/main.bicep
+          deploymentName: deploy-${{ github.run_id }}
           parameters: >
             dbAdminPassword=${{ secrets.DB_ADMIN_PASSWORD }}
             workerContainerImage=${{ env.WORKER_IMAGE }}
