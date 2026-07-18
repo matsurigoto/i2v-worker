@@ -211,8 +211,14 @@ jobs:
         run: |
           npm install --workspaces --include-workspace-root
           npm run build --workspace=packages/web
-        env:
-          VITE_API_BASE_URL: https://${{ needs.deploy-infra.outputs.api-app-hostname }}
+        # VITE_API_BASE_URL is intentionally left unset (client.ts then
+        # defaults to "", i.e. relative paths like "/api/..."). The Static
+        # Web App's linked backend (see infra/bicep/main.bicep) reverse-
+        # proxies /api/* to the API from the SWA's own origin, so the
+        # browser always calls the API same-origin. Pointing this at the
+        # API App Service's own hostname instead would make the request
+        # cross-origin again, which iOS Safari/Chrome's ITP breaks by
+        # discarding the SameSite=None session cookie.
 
       - name: Azure login (OIDC)
         uses: azure/login@v2
