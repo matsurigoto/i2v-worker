@@ -34,7 +34,7 @@ export interface PaasTask {
 }
 
 export interface PollOptions {
-  /** Interval between polls, in ms. Default: 3000. */
+  /** Interval between polls, in ms. Default: 10000. */
   intervalMs?: number;
   /** Overall timeout for polling, in ms. Default: 15 minutes. */
   timeoutMs?: number;
@@ -112,7 +112,7 @@ export class PaasApiClient {
     taskId: string,
     pollOptions: PollOptions = {},
   ): Promise<PaasTask> {
-    const intervalMs = pollOptions.intervalMs ?? 3000;
+    const intervalMs = pollOptions.intervalMs ?? 10_000;
     const timeoutMs = pollOptions.timeoutMs ?? 15 * 60 * 1000;
     const deadline = Date.now() + timeoutMs;
 
