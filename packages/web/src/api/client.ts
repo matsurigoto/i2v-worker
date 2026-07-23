@@ -76,8 +76,11 @@ export const api = {
     request<Series>(`/api/series/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   deleteSeries: (id: string) => request<void>(`/api/series/${id}`, { method: "DELETE" }),
 
-  listImages: (page = 1, pageSize = 24) =>
-    request<ImageListResponse>(`/api/images?page=${page}&pageSize=${pageSize}`),
+  listImages: (page = 1, pageSize = 24, q?: string) => {
+    const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+    if (q) params.set("q", q);
+    return request<ImageListResponse>(`/api/images?${params.toString()}`);
+  },
   uploadImages: (files: FileList | File[]) => {
     const form = new FormData();
     Array.from(files).forEach((f) => form.append("files", f));
@@ -86,6 +89,11 @@ export const api = {
       body: form,
     });
   },
+  updateImage: (id: string, data: { name?: string; category?: string }) =>
+    request<ImageListResponse["items"][number]>(`/api/images/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
   deleteImage: (id: string) =>
     request<{ deleted: boolean; wasUsedByVideoJobs: boolean }>(`/api/images/${id}`, {
       method: "DELETE",

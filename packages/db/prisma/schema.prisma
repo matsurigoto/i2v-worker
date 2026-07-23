@@ -54,6 +54,7 @@ model Prompt {
 model ImageAsset {
   id          String   @id @default(uuid())
   name        String
+  category    String   @default("原圖")
   storageKey  String
   contentType String
   size        Int

@@ -45,6 +45,7 @@ export interface StoryImportResult {
 export interface ImageAsset {
   id: string;
   name: string;
+  category: string;
   url: string;
   contentType: string;
   size: number;

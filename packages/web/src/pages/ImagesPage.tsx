@@ -10,13 +10,18 @@ export default function ImagesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<ImageAsset | null>(null);
+  const [editingImageName, setEditingImageName] = useState<string | null>(null);
+  const [editingCategory, setEditingCategory] = useState<string | null>(null);
+  const [imageNameError, setImageNameError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeQuery, setActiveQuery] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function refresh() {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.listImages(page, pageSize);
+      const res = await api.listImages(page, pageSize, activeQuery || undefined);
       setImages(res.items);
       setTotal(res.total);
     } catch {
@@ -29,7 +34,7 @@ export default function ImagesPage() {
   useEffect(() => {
     refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page]);
+  }, [page, activeQuery]);
 
   async function handleUpload(e: ChangeEvent<HTMLInputElement>) {
     if (!e.target.files || e.target.files.length === 0) return;
@@ -53,6 +58,41 @@ export default function ImagesPage() {
     refresh();
   }
 
+  async function handleRenameImage() {
+    if (!preview || editingImageName === null) return;
+    setImageNameError(null);
+    if (!editingImageName.trim()) {
+      setImageNameError("名稱不可為空");
+      return;
+    }
+    try {
+      const updated = await api.updateImage(preview.id, { name: editingImageName.trim() });
+      setPreview({ ...preview, name: updated.name });
+      setEditingImageName(null);
+      refresh();
+    } catch {
+      setImageNameError("更新名稱失敗");
+    }
+  }
+
+  async function handleUpdateCategory() {
+    if (!preview || editingCategory === null) return;
+    if (!editingCategory.trim()) return;
+    try {
+      const updated = await api.updateImage(preview.id, { category: editingCategory.trim() });
+      setPreview({ ...preview, category: updated.category });
+      setEditingCategory(null);
+      refresh();
+    } catch {
+      setImageNameError("更新類型失敗");
+    }
+  }
+
+  function handleSearch() {
+    setPage(1);
+    setActiveQuery(searchQuery.trim());
+  }
+
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   return (
@@ -73,6 +113,23 @@ export default function ImagesPage() {
         </label>
       </div>
 
+      <div className="card" style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+        <input
+          type="text"
+          placeholder="搜尋名稱或類型…"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") handleSearch(); }}
+          style={{ flex: 1 }}
+        />
+        <button className="btn primary" onClick={handleSearch}>搜尋</button>
+        {activeQuery && (
+          <button className="btn" onClick={() => { setSearchQuery(""); setActiveQuery(""); setPage(1); }}>
+            清除
+          </button>
+        )}
+      </div>
+
       {loading && <p>載入中…</p>}
       {error && <p className="error-text">{error}</p>}
 
@@ -82,6 +139,7 @@ export default function ImagesPage() {
             <img src={img.url} alt={img.name} />
             <div className="caption">
               <span title={img.name}>{img.name}</span>
+              <small style={{ opacity: 0.7 }}>{img.category}</small>
             </div>
           </div>
         ))}
@@ -105,17 +163,70 @@ export default function ImagesPage() {
       </div>
 
       {preview && (
-        <div className="lightbox-backdrop" onClick={() => setPreview(null)}>
+        <div className="lightbox-backdrop" onClick={() => { setPreview(null); setEditingImageName(null); setEditingCategory(null); setImageNameError(null); }}>
           <div onClick={(e) => e.stopPropagation()} style={{ textAlign: "center" }}>
             <img src={preview.url} alt={preview.name} />
             <div style={{ color: "#fff", marginTop: "0.5rem" }}>
-              <span>{preview.name}</span>{" "}
-              <button className="btn danger" onClick={() => handleDelete(preview)}>
-                刪除
-              </button>{" "}
-              <button className="btn" onClick={() => setPreview(null)}>
-                關閉
-              </button>
+              {editingImageName === null ? (
+                <>
+                  <span>{preview.name}</span>{" "}
+                  <button className="btn" onClick={() => setEditingImageName(preview.name)}>
+                    重新命名
+                  </button>{" "}
+                </>
+              ) : (
+                <>
+                  <input
+                    type="text"
+                    value={editingImageName}
+                    onChange={(e) => setEditingImageName(e.target.value)}
+                    style={{ maxWidth: "300px" }}
+                    onKeyDown={(e) => { if (e.key === "Enter") handleRenameImage(); }}
+                  />{" "}
+                  <button className="btn primary" onClick={handleRenameImage}>
+                    儲存
+                  </button>{" "}
+                  <button className="btn" onClick={() => { setEditingImageName(null); setImageNameError(null); }}>
+                    取消
+                  </button>
+                  {imageNameError && <span className="error-text"> {imageNameError}</span>}
+                  <br />
+                </>
+              )}
+              <div style={{ marginTop: "0.5rem" }}>
+                {editingCategory === null ? (
+                  <>
+                    <span>類型：{preview.category}</span>{" "}
+                    <button className="btn" onClick={() => setEditingCategory(preview.category)}>
+                      修改類型
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <input
+                      type="text"
+                      value={editingCategory}
+                      onChange={(e) => setEditingCategory(e.target.value)}
+                      style={{ maxWidth: "200px" }}
+                      onKeyDown={(e) => { if (e.key === "Enter") handleUpdateCategory(); }}
+                    />{" "}
+                    <button className="btn primary" onClick={handleUpdateCategory}>
+                      儲存
+                    </button>{" "}
+                    <button className="btn" onClick={() => setEditingCategory(null)}>
+                      取消
+                    </button>
+                  </>
+                )}
+              </div>
+              <div style={{ marginTop: "0.5rem" }}>
+                <button className="btn danger" onClick={() => handleDelete(preview)}>
+                  刪除
+                </button>{" "}
+                <button className="btn" onClick={() => { setPreview(null); setEditingImageName(null); setEditingCategory(null); setImageNameError(null); }}>
+                  關閉
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -35,10 +35,16 @@ imagesRouter.get("/", async (req, res) => {
     100,
     Math.max(1, Number(req.query.pageSize ?? config.imagesPageSizeDefault)),
   );
+  const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
+
+  const where = q
+    ? { OR: [{ name: { contains: q } }, { category: { contains: q } }] }
+    : {};
 
   const [total, images] = await Promise.all([
-    prisma.imageAsset.count(),
+    prisma.imageAsset.count({ where }),
     prisma.imageAsset.findMany({
+      where,
       orderBy: { uploadedAt: "desc" },
       skip: (page - 1) * pageSize,
       take: pageSize,
@@ -49,6 +55,7 @@ imagesRouter.get("/", async (req, res) => {
     items: images.map((img) => ({
       id: img.id,
       name: img.name,
+      category: img.category,
       url: storage.urlFor(img.storageKey),
       contentType: img.contentType,
       size: img.size,
@@ -69,6 +76,7 @@ imagesRouter.get("/:id", async (req, res) => {
   res.json({
     id: image.id,
     name: image.name,
+    category: image.category,
     url: storage.urlFor(image.storageKey),
     contentType: image.contentType,
     size: image.size,
@@ -82,6 +90,10 @@ imagesRouter.post("/", upload.array("files", 50), async (req, res) => {
     res.status(400).json({ error: "No files uploaded (expected multipart field 'files')" });
     return;
   }
+
+  const category = typeof req.body?.category === "string" && req.body.category.trim()
+    ? req.body.category.trim()
+    : "原圖";
 
   const uploadedStorageKeys: string[] = [];
   try {
@@ -104,6 +116,7 @@ imagesRouter.post("/", upload.array("files", 50), async (req, res) => {
         data: {
           id,
           name: file.originalname,
+          category,
           storageKey,
           contentType: file.mimetype,
           size: file.size,
@@ -112,6 +125,7 @@ imagesRouter.post("/", upload.array("files", 50), async (req, res) => {
       created.push({
         id: image.id,
         name: image.name,
+        category: image.category,
         url: storage.urlFor(image.storageKey),
         contentType: image.contentType,
         size: image.size,
@@ -146,6 +160,39 @@ imagesRouter.post("/", upload.array("files", 50), async (req, res) => {
       ),
     );
   }
+});
+
+imagesRouter.put("/:id", async (req, res) => {
+  const image = await prisma.imageAsset.findUnique({ where: { id: req.params.id } });
+  if (!image) {
+    res.status(404).json({ error: "Image not found" });
+    return;
+  }
+  const { name, category } = req.body ?? {};
+  const data: { name?: string; category?: string } = {};
+  if (typeof name === "string" && name.trim().length > 0) {
+    data.name = name.trim();
+  }
+  if (typeof category === "string" && category.trim().length > 0) {
+    data.category = category.trim();
+  }
+  if (Object.keys(data).length === 0) {
+    res.status(400).json({ error: "Provide at least one of: name, category" });
+    return;
+  }
+  const updated = await prisma.imageAsset.update({
+    where: { id: req.params.id },
+    data,
+  });
+  res.json({
+    id: updated.id,
+    name: updated.name,
+    category: updated.category,
+    url: storage.urlFor(updated.storageKey),
+    contentType: updated.contentType,
+    size: updated.size,
+    uploadedAt: updated.uploadedAt.toISOString(),
+  });
 });
 
 imagesRouter.delete("/:id", async (req, res) => {

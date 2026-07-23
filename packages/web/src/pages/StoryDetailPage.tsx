@@ -23,6 +23,10 @@ export default function StoryDetailPage() {
   const [seriesUpdateError, setSeriesUpdateError] = useState<string | null>(null);
   const [editingPrompts, setEditingPrompts] = useState<string[] | null>(null);
   const [promptsUpdateError, setPromptsUpdateError] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState<string | null>(null);
+  const [nameUpdateError, setNameUpdateError] = useState<string | null>(null);
+  const [editingDescription, setEditingDescription] = useState<string | null>(null);
+  const [descUpdateError, setDescUpdateError] = useState<string | null>(null);
   const selectedImage = images.find((img) => img.id === selectedImageId) ?? null;
 
   async function refresh() {
@@ -113,10 +117,108 @@ export default function StoryDetailPage() {
     }
   }
 
+  async function handleNameSave() {
+    if (!id || editingName === null) return;
+    setNameUpdateError(null);
+    if (!editingName.trim()) {
+      setNameUpdateError("名稱不可為空");
+      return;
+    }
+    try {
+      await api.updateStory(id, { name: editingName.trim() });
+      setEditingName(null);
+      refresh();
+    } catch {
+      setNameUpdateError("更新名稱失敗");
+    }
+  }
+
+  async function handleDescriptionSave() {
+    if (!id || editingDescription === null) return;
+    setDescUpdateError(null);
+    try {
+      await api.updateStory(id, { description: editingDescription });
+      setEditingDescription(null);
+      refresh();
+    } catch {
+      setDescUpdateError("更新描述失敗");
+    }
+  }
+
   return (
     <div>
-      <h2>{story.name}</h2>
-      <p style={{ color: "#666" }}>{story.description}</p>
+      {editingName === null ? (
+        <h2>
+          {story.name}{" "}
+          <button
+            className="btn"
+            style={{ fontSize: "0.8rem", padding: "0.1rem 0.5rem", verticalAlign: "middle" }}
+            onClick={() => setEditingName(story.name)}
+          >
+            編輯
+          </button>
+        </h2>
+      ) : (
+        <div style={{ marginBottom: "0.5rem" }}>
+          <input
+            type="text"
+            value={editingName}
+            onChange={(e) => setEditingName(e.target.value)}
+            style={{ fontSize: "1.3rem", fontWeight: "bold" }}
+          />{" "}
+          <button
+            className="btn primary"
+            style={{ fontSize: "0.8rem", padding: "0.1rem 0.5rem" }}
+            onClick={handleNameSave}
+          >
+            儲存
+          </button>{" "}
+          <button
+            className="btn"
+            style={{ fontSize: "0.8rem", padding: "0.1rem 0.5rem" }}
+            onClick={() => { setEditingName(null); setNameUpdateError(null); }}
+          >
+            取消
+          </button>
+          {nameUpdateError && <span className="error-text"> {nameUpdateError}</span>}
+        </div>
+      )}
+      {editingDescription === null ? (
+        <p style={{ color: "#666" }}>
+          {story.description || "（無描述）"}{" "}
+          <button
+            className="btn"
+            style={{ fontSize: "0.8rem", padding: "0.1rem 0.5rem" }}
+            onClick={() => setEditingDescription(story.description)}
+          >
+            編輯
+          </button>
+        </p>
+      ) : (
+        <div style={{ marginBottom: "0.5rem" }}>
+          <textarea
+            value={editingDescription}
+            onChange={(e) => setEditingDescription(e.target.value)}
+            rows={3}
+            style={{ width: "100%" }}
+          />{" "}
+          <button
+            className="btn primary"
+            style={{ fontSize: "0.8rem", padding: "0.1rem 0.5rem" }}
+            onClick={handleDescriptionSave}
+          >
+            儲存
+          </button>{" "}
+          <button
+            className="btn"
+            style={{ fontSize: "0.8rem", padding: "0.1rem 0.5rem" }}
+            onClick={() => { setEditingDescription(null); setDescUpdateError(null); }}
+          >
+            取消
+          </button>
+          {descUpdateError && <span className="error-text"> {descUpdateError}</span>}
+        </div>
+      )}
       <p style={{ fontSize: "0.85rem", color: "#888" }}>
         系列：{currentSeriesName}{" "}
         {editingSeriesId === undefined ? (
