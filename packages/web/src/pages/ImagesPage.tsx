@@ -238,7 +238,7 @@ export default function ImagesPage() {
               <input
                 type="checkbox"
                 checked={selectedIds.has(img.id)}
-                onChange={() => toggleSelect(img.id)}
+                readOnly
                 style={{ width: "18px", height: "18px", cursor: "pointer" }}
               />
             </div>
