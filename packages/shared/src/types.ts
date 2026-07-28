@@ -118,6 +118,29 @@ export interface VideoJob {
   segments: VideoSegment[];
 }
 
+// ── Merged Video ────────────────────────────────────────────────
+
+export type MergedVideoStatus = "processing" | "completed" | "failed";
+
+export interface MergedVideo {
+  id: string;
+  storyId: string;
+  videoJobId: string;
+  name: string;
+  status: MergedVideoStatus;
+  videoUrl: string | null;
+  thumbnailUrl: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MergedVideoListResponse {
+  items: MergedVideo[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
 /** Human readable explanation of the video-chaining mechanism, reused by API docs and the web UI. */
 export const VIDEO_CHAIN_EXPLANATION =
   "PAAS API 僅提供 image-to-video，沒有 video-to-video。因此第 2~7 段影片，是由前一段影片" +

@@ -3,6 +3,7 @@ import { createStorageFromEnv, PaasApiClient } from "@i2v/shared";
 import { config } from "./config";
 import { claimNextMessage } from "./queue";
 import { runVideoJob } from "./segmentProcessor";
+import { mergeVideoSegments } from "./videoMerger";
 
 const prisma = getPrismaClient();
 const storage = createStorageFromEnv({
@@ -21,6 +22,29 @@ async function tick(): Promise<boolean> {
   if (!message) return false;
 
   const startedAt = Date.now();
+
+  if (message.type === "merge-video" && message.mergedVideoId) {
+    // eslint-disable-next-line no-console
+    console.log(
+      `[worker] merging video for MergedVideo ${message.mergedVideoId} (queue message ${message.id})`,
+    );
+    try {
+      await mergeVideoSegments({ prisma, storage }, message.mergedVideoId);
+      // eslint-disable-next-line no-console
+      console.log(
+        `[worker] finished merge ${message.mergedVideoId} in ${Date.now() - startedAt}ms`,
+      );
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error(
+        `[worker] merge ${message.mergedVideoId} failed after ${Date.now() - startedAt}ms:`,
+        err,
+      );
+    }
+    return true;
+  }
+
+  // Default: video-job
   // eslint-disable-next-line no-console
   console.log(
     `[worker] processing VideoJob ${message.videoJobId} (queue message ${message.id})`,

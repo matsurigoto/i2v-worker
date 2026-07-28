@@ -3,6 +3,8 @@ import type { PrismaClient } from "@i2v/db";
 export interface ClaimedMessage {
   id: string;
   videoJobId: string;
+  type: string;
+  mergedVideoId: string | null;
 }
 
 /**
@@ -30,6 +32,11 @@ export async function claimNextMessage(
       data: { processed: true, dequeueCount: { increment: 1 } },
     });
 
-    return { id: message.id, videoJobId: message.videoJobId };
+    return {
+      id: message.id,
+      videoJobId: message.videoJobId,
+      type: message.type,
+      mergedVideoId: message.mergedVideoId,
+    };
   });
 }

@@ -110,6 +110,7 @@ textarea {
   overflow: hidden;
   border: 1px solid #e2e5ea;
   background: #fff;
+  position: relative;
 }
 
 .image-tile img {

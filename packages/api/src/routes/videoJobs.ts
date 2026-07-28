@@ -183,3 +183,57 @@ videoJobsRouter.delete("/:jobId/segments/:seq", async (req, res) => {
   await prisma.videoSegment.delete({ where: { id: segment.id } });
   res.status(204).send();
 });
+
+/** POST /api/videojobs/:id/merge — trigger merging 7 segments into one video */
+videoJobsRouter.post("/:id/merge", async (req, res) => {
+  const job = await prisma.videoJob.findUnique({
+    where: { id: req.params.id },
+    include: { story: true },
+  });
+  if (!job) {
+    res.status(404).json({ error: "Video job not found" });
+    return;
+  }
+  if (job.status !== "completed") {
+    res.status(422).json({ error: "只有已完成的影片批次才能合併" });
+    return;
+  }
+
+  const now = new Date();
+  const pad = (n: number, len = 2) => String(n).padStart(len, "0");
+  const timestamp =
+    `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}` +
+    `${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+  const name = `${job.story.name}-${timestamp}`;
+
+  const merged = await prisma.$transaction(async (tx) => {
+    const created = await tx.mergedVideo.create({
+      data: {
+        storyId: job.storyId,
+        videoJobId: job.id,
+        name,
+        status: "processing",
+      },
+    });
+    await tx.queueMessage.create({
+      data: {
+        videoJobId: job.id,
+        type: "merge-video",
+        mergedVideoId: created.id,
+      },
+    });
+    return created;
+  });
+
+  res.status(201).json({
+    id: merged.id,
+    storyId: merged.storyId,
+    videoJobId: merged.videoJobId,
+    name: merged.name,
+    status: merged.status,
+    videoUrl: null,
+    thumbnailUrl: null,
+    createdAt: merged.createdAt.toISOString(),
+    updatedAt: merged.updatedAt.toISOString(),
+  });
+});

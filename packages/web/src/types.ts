@@ -84,3 +84,24 @@ export interface VideoJob {
   updatedAt: string;
   segments: VideoSegment[];
 }
+
+export type MergedVideoStatus = "processing" | "completed" | "failed";
+
+export interface MergedVideo {
+  id: string;
+  storyId: string;
+  videoJobId: string;
+  name: string;
+  status: MergedVideoStatus;
+  videoUrl: string | null;
+  thumbnailUrl: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MergedVideoListResponse {
+  items: MergedVideo[];
+  total: number;
+  page: number;
+  pageSize: number;
+}

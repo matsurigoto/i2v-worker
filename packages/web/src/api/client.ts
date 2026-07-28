@@ -1,5 +1,7 @@
 import type {
   ImageListResponse,
+  MergedVideo,
+  MergedVideoListResponse,
   Series,
   SeriesListResponse,
   Story,
@@ -98,6 +100,11 @@ export const api = {
     request<{ deleted: boolean; wasUsedByVideoJobs: boolean }>(`/api/images/${id}`, {
       method: "DELETE",
     }),
+  batchUpdateImages: (data: { ids: string[]; action: "rename" | "category"; value: string }) =>
+    request<{ items: ImageListResponse["items"] }>("/api/images/batch", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
 
   listVideoJobs: (storyId: string) =>
     request<{ items: VideoJob[] }>(`/api/stories/${storyId}/videojobs`),
@@ -109,4 +116,14 @@ export const api = {
   deleteVideoJob: (id: string) => request<void>(`/api/videojobs/${id}`, { method: "DELETE" }),
   deleteVideoSegment: (jobId: string, seq: number) =>
     request<void>(`/api/videojobs/${jobId}/segments/${seq}`, { method: "DELETE" }),
+
+  mergeVideoJob: (jobId: string) =>
+    request<MergedVideo>(`/api/videojobs/${jobId}/merge`, { method: "POST" }),
+  listMergedVideos: (page = 1, pageSize = 24, q?: string) => {
+    const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+    if (q) params.set("q", q);
+    return request<MergedVideoListResponse>(`/api/merged-videos?${params.toString()}`);
+  },
+  deleteMergedVideo: (id: string) =>
+    request<void>(`/api/merged-videos/${id}`, { method: "DELETE" }),
 };

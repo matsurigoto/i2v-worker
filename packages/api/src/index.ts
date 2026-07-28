@@ -9,6 +9,7 @@ import { storiesRouter } from "./routes/stories";
 import { seriesRouter } from "./routes/series";
 import { imagesRouter } from "./routes/images";
 import { videoJobsRouter, storyVideoJobsRouter } from "./routes/videoJobs";
+import { mergedVideosRouter } from "./routes/mergedVideos";
 import { requireAuth } from "./middleware/auth";
 
 // Azure App Service's reverse proxy sometimes appends the client's port to
@@ -88,6 +89,7 @@ export function createApp() {
   app.use("/api/stories/:storyId/videojobs", apiLimiter, requireAuth, storyVideoJobsRouter);
   app.use("/api/images", apiLimiter, requireAuth, imagesRouter);
   app.use("/api/videojobs", apiLimiter, requireAuth, videoJobsRouter);
+  app.use("/api/merged-videos", apiLimiter, requireAuth, mergedVideosRouter);
 
   // Catch-all error handler, registered after the cors() middleware and all
   // routes, so unexpected exceptions (e.g. thrown from a route handler)

@@ -162,6 +162,76 @@ imagesRouter.post("/", upload.array("files", 50), async (req, res) => {
   }
 });
 
+imagesRouter.put("/batch", async (req, res) => {
+  const { ids, action, value } = req.body ?? {};
+
+  if (!Array.isArray(ids) || ids.length === 0) {
+    res.status(400).json({ error: "ids must be a non-empty array" });
+    return;
+  }
+  if (ids.length > 100) {
+    res.status(400).json({ error: "Cannot update more than 100 images at once" });
+    return;
+  }
+  if (typeof value !== "string" || !value.trim()) {
+    res.status(400).json({ error: "value must be a non-empty string" });
+    return;
+  }
+  if (action !== "rename" && action !== "category") {
+    res.status(400).json({ error: 'action must be "rename" or "category"' });
+    return;
+  }
+
+  const trimmedValue = value.trim();
+
+  if (action === "category") {
+    await prisma.imageAsset.updateMany({
+      where: { id: { in: ids } },
+      data: { category: trimmedValue },
+    });
+  } else {
+    // rename: fetch originals to extract file extensions
+    const images = await prisma.imageAsset.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, name: true },
+    });
+    // Preserve the order from the request ids array
+    const imageMap = new Map(images.map((img) => [img.id, img]));
+    const padLen = Math.max(3, String(ids.length).length);
+    await prisma.$transaction(
+      ids
+        .filter((id: string) => imageMap.has(id))
+        .map((id: string, idx: number) => {
+          const orig = imageMap.get(id)!;
+          const ext = orig.name.includes(".")
+            ? orig.name.slice(orig.name.lastIndexOf("."))
+            : "";
+          const seq = String(idx + 1).padStart(padLen, "0");
+          return prisma.imageAsset.update({
+            where: { id },
+            data: { name: `${trimmedValue}-${seq}${ext}` },
+          });
+        }),
+    );
+  }
+
+  // Return updated images
+  const updated = await prisma.imageAsset.findMany({
+    where: { id: { in: ids } },
+  });
+  res.json({
+    items: updated.map((img) => ({
+      id: img.id,
+      name: img.name,
+      category: img.category,
+      url: storage.urlFor(img.storageKey),
+      contentType: img.contentType,
+      size: img.size,
+      uploadedAt: img.uploadedAt.toISOString(),
+    })),
+  });
+});
+
 imagesRouter.put("/:id", async (req, res) => {
   const image = await prisma.imageAsset.findUnique({ where: { id: req.params.id } });
   if (!image) {

@@ -14,6 +14,7 @@ export default function StoryDetailPage() {
   const [images, setImages] = useState<ImageAsset[]>([]);
   const [seriesList, setSeriesList] = useState<Series[]>([]);
   const [selectedImageId, setSelectedImageId] = useState<string>("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [triggering, setTriggering] = useState(false);
@@ -23,11 +24,17 @@ export default function StoryDetailPage() {
   const [seriesUpdateError, setSeriesUpdateError] = useState<string | null>(null);
   const [editingPrompts, setEditingPrompts] = useState<string[] | null>(null);
   const [promptsUpdateError, setPromptsUpdateError] = useState<string | null>(null);
+  const [promptsCopied, setPromptsCopied] = useState(false);
   const [editingName, setEditingName] = useState<string | null>(null);
   const [nameUpdateError, setNameUpdateError] = useState<string | null>(null);
   const [editingDescription, setEditingDescription] = useState<string | null>(null);
   const [descUpdateError, setDescUpdateError] = useState<string | null>(null);
+  const [mergingJobId, setMergingJobId] = useState<string | null>(null);
   const selectedImage = images.find((img) => img.id === selectedImageId) ?? null;
+  const categories = [...new Set(images.map((img) => img.category))].sort();
+  const filteredImages = selectedCategory
+    ? images.filter((img) => img.category === selectedCategory)
+    : images;
 
   async function refresh() {
     if (!id) return;
@@ -80,6 +87,19 @@ export default function StoryDetailPage() {
     if (!confirm("確定要刪除這批影片（七段）嗎？")) return;
     await api.deleteVideoJob(jobId);
     refresh();
+  }
+
+  async function handleMerge(jobId: string) {
+    setMergingJobId(jobId);
+    setError(null);
+    try {
+      await api.mergeVideoJob(jobId);
+      alert("合併任務已排入佇列，請至「合併影片」頁面查看進度。");
+    } catch {
+      setError("觸發合併失敗");
+    } finally {
+      setMergingJobId(null);
+    }
   }
 
   if (loading) return <p>載入中…</p>;
@@ -266,13 +286,27 @@ export default function StoryDetailPage() {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <h3 style={{ margin: 0 }}>七段提示詞</h3>
           {editingPrompts === null && (
-            <button
-              className="btn"
-              style={{ fontSize: "0.8rem", padding: "0.1rem 0.5rem" }}
-              onClick={() => setEditingPrompts([...story.prompts])}
-            >
-              編輯提示詞
-            </button>
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              <button
+                className="btn"
+                style={{ fontSize: "0.8rem", padding: "0.1rem 0.5rem" }}
+                onClick={() => setEditingPrompts([...story.prompts])}
+              >
+                編輯提示詞
+              </button>
+              <button
+                className="btn"
+                style={{ fontSize: "0.8rem", padding: "0.1rem 0.5rem" }}
+                onClick={() => {
+                  navigator.clipboard.writeText(JSON.stringify(story.prompts, null, 2)).then(() => {
+                    setPromptsCopied(true);
+                    setTimeout(() => setPromptsCopied(false), 1500);
+                  });
+                }}
+              >
+                {promptsCopied ? "已複製！" : "複製 JSON"}
+              </button>
+            </div>
           )}
         </div>
         {editingPrompts === null ? (
@@ -316,10 +350,19 @@ export default function StoryDetailPage() {
       <div className="card">
         <h3>產生影片</h3>
         <p style={{ fontSize: "0.85rem", color: "#555" }}>{VIDEO_CHAIN_EXPLANATION}</p>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+          <select
+            value={selectedCategory}
+            onChange={(e) => { setSelectedCategory(e.target.value); setSelectedImageId(""); }}
+          >
+            <option value="">全部類型</option>
+            {categories.map((cat) => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
+          </select>
           <select value={selectedImageId} onChange={(e) => setSelectedImageId(e.target.value)}>
             <option value="">選擇來源圖片…</option>
-            {images.map((img) => (
+            {filteredImages.map((img) => (
               <option key={img.id} value={img.id}>
                 {img.name}
               </option>
@@ -353,7 +396,16 @@ export default function StoryDetailPage() {
             <div style={{ minWidth: 140, flexShrink: 0 }}>
               <div>{new Date(job.triggeredAt).toLocaleString()}</div>
               <span className={`badge ${job.status}`}>{job.status}</span>
-              <div>
+              <div style={{ display: "flex", gap: "0.25rem", flexWrap: "wrap" }}>
+                {job.status === "completed" && (
+                  <button
+                    className="btn primary"
+                    disabled={mergingJobId === job.id}
+                    onClick={() => handleMerge(job.id)}
+                  >
+                    {mergingJobId === job.id ? "排入中…" : "合併影片"}
+                  </button>
+                )}
                 <button className="btn danger" onClick={() => handleDeleteJob(job.id)}>
                   刪除
                 </button>

@@ -32,9 +32,10 @@ model Story {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  series    Series?    @relation(fields: [seriesId], references: [id], onDelete: SetNull)
-  prompts   Prompt[]
-  videoJobs VideoJob[]
+  series       Series?        @relation(fields: [seriesId], references: [id], onDelete: SetNull)
+  prompts      Prompt[]
+  videoJobs    VideoJob[]
+  mergedVideos MergedVideo[]
 
   @@index([seriesId])
 }
@@ -74,6 +75,7 @@ model VideoJob {
   story       Story          @relation(fields: [storyId], references: [id], onDelete: Cascade)
   sourceImage ImageAsset?    @relation(fields: [sourceImageId], references: [id], onDelete: SetNull)
   segments    VideoSegment[]
+  mergedVideos MergedVideo[]
 
   @@index([storyId])
 }
@@ -103,8 +105,31 @@ model VideoSegment {
 model QueueMessage {
   id          String    @id @default(uuid())
   videoJobId  String
+  type        String    @default("video-job") // "video-job" | "merge-video"
+  mergedVideoId String?
   createdAt   DateTime  @default(now())
   visibleAt   DateTime  @default(now())
   dequeueCount Int      @default(0)
   processed   Boolean   @default(false)
+}
+
+model MergedVideo {
+  id            String   @id @default(uuid())
+  storyId       String
+  videoJobId    String
+  name          String
+  status        String   @default("processing") // processing | completed | failed
+  storageKey    String?
+  thumbnailKey  String?
+  contentType   String?
+  size          Int?
+  errorMessage  String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  story    Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  videoJob VideoJob @relation(fields: [videoJobId], references: [id], onDelete: Cascade)
+
+  @@index([storyId])
+  @@index([videoJobId])
 }

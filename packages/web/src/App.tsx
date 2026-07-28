@@ -6,6 +6,7 @@ import StoriesPage from "./pages/StoriesPage";
 import StoryDetailPage from "./pages/StoryDetailPage";
 import ImagesPage from "./pages/ImagesPage";
 import SeriesPage from "./pages/SeriesPage";
+import MergedVideosPage from "./pages/MergedVideosPage";
 
 function ProtectedShell({ children }: { children: React.ReactNode }) {
   const { username, loading, logout } = useAuth();
@@ -24,6 +25,7 @@ function ProtectedShell({ children }: { children: React.ReactNode }) {
         <h1>i2v Story Studio</h1>
         <NavLink to="/series" onClick={() => setNavOpen(false)}>系列管理</NavLink>
         <NavLink to="/stories" onClick={() => setNavOpen(false)}>故事維護</NavLink>
+        <NavLink to="/merged-videos" onClick={() => setNavOpen(false)}>合併影片</NavLink>
         <NavLink to="/images" onClick={() => setNavOpen(false)}>圖片管理</NavLink>
         <div style={{ marginTop: "2rem", fontSize: "0.8rem", color: "#9aa4b2" }}>
           已登入：{username}
@@ -70,6 +72,14 @@ export default function App() {
         element={
           <ProtectedShell>
             <ImagesPage />
+          </ProtectedShell>
+        }
+      />
+      <Route
+        path="/merged-videos"
+        element={
+          <ProtectedShell>
+            <MergedVideosPage />
           </ProtectedShell>
         }
       />

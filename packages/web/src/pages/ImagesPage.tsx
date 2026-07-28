@@ -17,6 +17,17 @@ export default function ImagesPage() {
   const [activeQuery, setActiveQuery] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Batch selection state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [batchMode, setBatchMode] = useState<"rename" | "category" | null>(null);
+  const [batchValue, setBatchValue] = useState("");
+  const [batchError, setBatchError] = useState<string | null>(null);
+
+  // Clear selection when page or query changes
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [page, activeQuery]);
+
   async function refresh() {
     setLoading(true);
     setError(null);
@@ -93,6 +104,54 @@ export default function ImagesPage() {
     setActiveQuery(searchQuery.trim());
   }
 
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === images.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(images.map((img) => img.id)));
+    }
+  }
+
+  function openBatchMode(mode: "rename" | "category") {
+    setBatchMode(mode);
+    setBatchValue("");
+    setBatchError(null);
+  }
+
+  function closeBatchMode() {
+    setBatchMode(null);
+    setBatchValue("");
+    setBatchError(null);
+  }
+
+  async function handleBatchSubmit() {
+    if (!batchMode || selectedIds.size === 0) return;
+    if (!batchValue.trim()) {
+      setBatchError(batchMode === "rename" ? "名稱前綴不可為空" : "類型不可為空");
+      return;
+    }
+    setBatchError(null);
+    try {
+      // Preserve the visual order (same as grid display order) for rename numbering
+      const orderedIds = images.filter((img) => selectedIds.has(img.id)).map((img) => img.id);
+      await api.batchUpdateImages({ ids: orderedIds, action: batchMode, value: batchValue.trim() });
+      closeBatchMode();
+      setSelectedIds(new Set());
+      refresh();
+    } catch {
+      setBatchError(batchMode === "rename" ? "批次命名失敗" : "批次修改類型失敗");
+    }
+  }
+
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   return (
@@ -133,9 +192,56 @@ export default function ImagesPage() {
       {loading && <p>載入中…</p>}
       {error && <p className="error-text">{error}</p>}
 
+      {/* Batch action toolbar */}
+      {selectedIds.size > 0 && (
+        <div className="card" style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
+          <span>已選 {selectedIds.size} 張</span>
+          <button className="btn" onClick={toggleSelectAll}>
+            {selectedIds.size === images.length ? "取消全選" : "全選本頁"}
+          </button>
+          <button className="btn primary" onClick={() => openBatchMode("rename")}>批次命名</button>
+          <button className="btn primary" onClick={() => openBatchMode("category")}>批次修改類型</button>
+          <button className="btn" onClick={() => setSelectedIds(new Set())}>取消選取</button>
+        </div>
+      )}
+
+      {/* Batch input dialog */}
+      {batchMode && (
+        <div className="card" style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
+          <span>{batchMode === "rename" ? "批次命名：" : "批次修改類型："}</span>
+          <input
+            type="text"
+            placeholder={batchMode === "rename" ? "輸入名稱前綴，如：學生" : "輸入類型，如：制服"}
+            value={batchValue}
+            onChange={(e) => setBatchValue(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") handleBatchSubmit(); }}
+            style={{ flex: 1, minWidth: "150px" }}
+          />
+          <button className="btn primary" onClick={handleBatchSubmit}>確認</button>
+          <button className="btn" onClick={closeBatchMode}>取消</button>
+          {batchError && <span className="error-text">{batchError}</span>}
+        </div>
+      )}
+
       <div className="grid cols-4">
         {images.map((img) => (
-          <div className="image-tile" key={img.id} onClick={() => setPreview(img)}>
+          <div
+            className="image-tile"
+            key={img.id}
+            onClick={() => setPreview(img)}
+            style={selectedIds.has(img.id) ? { outline: "3px solid #4f8cff", outlineOffset: "-3px" } : undefined}
+          >
+            <div
+              style={{ position: "absolute", top: "4px", left: "4px", zIndex: 1 }}
+              onClick={(e) => { e.stopPropagation(); toggleSelect(img.id); }}
+            >
+              <input
+                type="checkbox"
+                checked={selectedIds.has(img.id)}
+                onChange={() => toggleSelect(img.id)}
+                style={{ width: "18px", height: "18px", cursor: "pointer" }}
+              />
+            </div>
             <img src={img.url} alt={img.name} />
             <div className="caption">
               <span title={img.name}>{img.name}</span>
