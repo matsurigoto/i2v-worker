@@ -10,6 +10,7 @@ import { seriesRouter } from "./routes/series";
 import { imagesRouter } from "./routes/images";
 import { videoJobsRouter, storyVideoJobsRouter } from "./routes/videoJobs";
 import { mergedVideosRouter } from "./routes/mergedVideos";
+import { mediaRouter } from "./routes/media";
 import { requireAuth } from "./middleware/auth";
 
 // Azure App Service's reverse proxy sometimes appends the client's port to
@@ -77,13 +78,13 @@ export function createApp() {
   app.use(cors({ origin: config.corsOrigin, credentials: true }));
   app.use(cookieParser());
   app.use(express.json({ limit: "10mb" }));
-  app.use(config.mediaPublicBasePath, express.static(config.mediaRootDir));
 
   app.get("/health", (_req, res) => res.json({ status: "ok" }));
 
   app.use("/api/auth", authLimiter, authRouter);
 
   // Everything below requires an authenticated session.
+  app.use("/api/media", apiLimiter, requireAuth, mediaRouter);
   app.use("/api/series", apiLimiter, requireAuth, seriesRouter);
   app.use("/api/stories", apiLimiter, requireAuth, storiesRouter);
   app.use("/api/stories/:storyId/videojobs", apiLimiter, requireAuth, storyVideoJobsRouter);

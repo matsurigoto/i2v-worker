@@ -144,6 +144,16 @@ describe("images", () => {
     const getRes = await agent.get(`/api/images/${image.id}`);
     expect(getRes.status).toBe(404);
   });
+
+  it("returns /api/media/* URLs for image assets", async () => {
+    const uploadRes = await agent
+      .post("/api/images")
+      .attach("files", Buffer.from("fake-image-bytes"), "check-url.png");
+    expect(uploadRes.status).toBe(201);
+    const image = uploadRes.body.items[0];
+    expect(image.url).toMatch(/^\/api\/media\//);
+    await agent.delete(`/api/images/${image.id}`);
+  });
 });
 
 describe("video jobs", () => {
@@ -210,5 +220,45 @@ describe("CORS", () => {
       .set("Origin", "https://evil.example.com")
       .set("Access-Control-Request-Method", "POST");
     expect(res.headers["access-control-allow-origin"]).toBeUndefined();
+  });
+});
+
+describe("media proxy", () => {
+  it("rejects unauthenticated requests with 401", async () => {
+    const res = await request(app).get("/api/media/images/some-image.png");
+    expect(res.status).toBe(401);
+  });
+
+  it("blocks path traversal (Express normalises away the .. segments before the route matches)", async () => {
+    await login();
+    // Express normalises /api/media/../../etc/passwd → /etc/passwd which does
+    // not match the /api/media/* mount, so the server returns 404 rather than
+    // 400.  The important guarantee is that the traversal is rejected and the
+    // server never serves /etc/passwd.
+    const res = await agent.get("/api/media/../../etc/passwd");
+    expect(res.status).toBe(404);
+  });
+
+  it("serves an uploaded image to an authenticated user", async () => {
+    await login();
+    const uploadRes = await agent
+      .post("/api/images")
+      .attach("files", Buffer.from("fake-png-data"), "serve-test.png");
+    expect(uploadRes.status).toBe(201);
+    const image = uploadRes.body.items[0];
+
+    // image.url is /api/media/<storageKey>
+    expect(image.url).toMatch(/^\/api\/media\//);
+    const mediaRes = await agent.get(image.url);
+    expect(mediaRes.status).toBe(200);
+    expect(mediaRes.headers["content-type"]).toContain("image/png");
+
+    await agent.delete(`/api/images/${image.id}`);
+  });
+
+  it("returns 404 for a non-existent key", async () => {
+    await login();
+    const res = await agent.get("/api/media/images/does-not-exist.png");
+    expect(res.status).toBe(404);
   });
 });
