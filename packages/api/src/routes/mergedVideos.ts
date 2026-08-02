@@ -2,6 +2,7 @@ import { Router } from "express";
 import { getPrismaClient } from "@i2v/db";
 import type { MergedVideo } from "@i2v/shared";
 import { storage } from "../storage";
+import { mediaUrl } from "./media";
 
 export const mergedVideosRouter = Router();
 
@@ -24,8 +25,8 @@ function toDto(row: {
     videoJobId: row.videoJobId,
     name: row.name,
     status: row.status as MergedVideo["status"],
-    videoUrl: row.storageKey ? storage.urlFor(row.storageKey) : null,
-    thumbnailUrl: row.thumbnailKey ? storage.urlFor(row.thumbnailKey) : null,
+    videoUrl: row.storageKey ? mediaUrl(row.storageKey) : null,
+    thumbnailUrl: row.thumbnailKey ? mediaUrl(row.thumbnailKey) : null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };

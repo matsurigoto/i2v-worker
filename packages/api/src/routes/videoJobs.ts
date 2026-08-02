@@ -2,6 +2,7 @@ import { Router } from "express";
 import { getPrismaClient } from "@i2v/db";
 import { SEGMENT_COUNT, VideoJob, VideoSegment } from "@i2v/shared";
 import { storage } from "../storage";
+import { mediaUrl } from "./media";
 
 export const videoJobsRouter = Router();
 export const storyVideoJobsRouter = Router({ mergeParams: true });
@@ -28,8 +29,8 @@ function toSegmentDto(segment: SegmentRow): VideoSegment {
     seq: segment.seq,
     status: segment.status as VideoSegment["status"],
     apiTaskId: segment.apiTaskId,
-    videoUrl: segment.storageKey ? storage.urlFor(segment.storageKey) : null,
-    thumbnailUrl: segment.thumbnailKey ? storage.urlFor(segment.thumbnailKey) : null,
+    videoUrl: segment.storageKey ? mediaUrl(segment.storageKey) : null,
+    thumbnailUrl: segment.thumbnailKey ? mediaUrl(segment.thumbnailKey) : null,
     errorMessage: segment.errorMessage,
     createdAt: segment.createdAt.toISOString(),
     updatedAt: segment.updatedAt.toISOString(),

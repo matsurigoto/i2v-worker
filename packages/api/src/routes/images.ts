@@ -5,6 +5,7 @@ import multer from "multer";
 import { getPrismaClient } from "@i2v/db";
 import { config } from "../config";
 import { storage } from "../storage";
+import { mediaUrl } from "./media";
 
 export const imagesRouter = Router();
 
@@ -56,7 +57,7 @@ imagesRouter.get("/", async (req, res) => {
       id: img.id,
       name: img.name,
       category: img.category,
-      url: storage.urlFor(img.storageKey),
+      url: mediaUrl(img.storageKey),
       contentType: img.contentType,
       size: img.size,
       uploadedAt: img.uploadedAt.toISOString(),
@@ -77,7 +78,7 @@ imagesRouter.get("/:id", async (req, res) => {
     id: image.id,
     name: image.name,
     category: image.category,
-    url: storage.urlFor(image.storageKey),
+    url: mediaUrl(image.storageKey),
     contentType: image.contentType,
     size: image.size,
     uploadedAt: image.uploadedAt.toISOString(),
@@ -126,7 +127,7 @@ imagesRouter.post("/", upload.array("files", 50), async (req, res) => {
         id: image.id,
         name: image.name,
         category: image.category,
-        url: storage.urlFor(image.storageKey),
+        url: mediaUrl(image.storageKey),
         contentType: image.contentType,
         size: image.size,
         uploadedAt: image.uploadedAt.toISOString(),
@@ -224,7 +225,7 @@ imagesRouter.put("/batch", async (req, res) => {
       id: img.id,
       name: img.name,
       category: img.category,
-      url: storage.urlFor(img.storageKey),
+      url: mediaUrl(img.storageKey),
       contentType: img.contentType,
       size: img.size,
       uploadedAt: img.uploadedAt.toISOString(),
@@ -258,7 +259,7 @@ imagesRouter.put("/:id", async (req, res) => {
     id: updated.id,
     name: updated.name,
     category: updated.category,
-    url: storage.urlFor(updated.storageKey),
+    url: mediaUrl(updated.storageKey),
     contentType: updated.contentType,
     size: updated.size,
     uploadedAt: updated.uploadedAt.toISOString(),
