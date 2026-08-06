@@ -117,6 +117,12 @@ export const api = {
   deleteVideoSegment: (jobId: string, seq: number) =>
     request<void>(`/api/videojobs/${jobId}/segments/${seq}`, { method: "DELETE" }),
 
+  regenerateSegment: (jobId: string, seq: number, prompt?: string) =>
+    request<VideoJob>(`/api/videojobs/${jobId}/segments/${seq}/regenerate`, {
+      method: "POST",
+      body: JSON.stringify({ prompt }),
+    }),
+
   mergeVideoJob: (jobId: string) =>
     request<MergedVideo>(`/api/videojobs/${jobId}/merge`, { method: "POST" }),
   listMergedVideos: (page = 1, pageSize = 24, q?: string) => {

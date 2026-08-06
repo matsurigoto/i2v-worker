@@ -3,6 +3,7 @@ import { createStorageFromEnv, PaasApiClient } from "@i2v/shared";
 import { config } from "./config";
 import { claimNextMessage } from "./queue";
 import { runVideoJob } from "./segmentProcessor";
+import { regenerateSegment } from "./segmentRegenerator";
 import { mergeVideoSegments } from "./videoMerger";
 
 const prisma = getPrismaClient();
@@ -22,6 +23,38 @@ async function tick(): Promise<boolean> {
   if (!message) return false;
 
   const startedAt = Date.now();
+
+  if (message.type === "regenerate-segment" && message.segmentSeq != null) {
+    // eslint-disable-next-line no-console
+    console.log(
+      `[worker] regenerating segment seq=${message.segmentSeq} for VideoJob ${message.videoJobId} (queue message ${message.id})`,
+    );
+    try {
+      await regenerateSegment(
+        {
+          prisma,
+          storage,
+          paasClient,
+          pollIntervalMs: config.pollIntervalMs,
+          pollTimeoutMs: config.pollTimeoutMs,
+          imageToVideoDefaults: config.imageToVideo,
+        },
+        message.videoJobId,
+        message.segmentSeq,
+      );
+      // eslint-disable-next-line no-console
+      console.log(
+        `[worker] finished regenerating seq=${message.segmentSeq} for VideoJob ${message.videoJobId} in ${Date.now() - startedAt}ms`,
+      );
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error(
+        `[worker] regen seq=${message.segmentSeq} VideoJob ${message.videoJobId} failed after ${Date.now() - startedAt}ms:`,
+        err,
+      );
+    }
+    return true;
+  }
 
   if (message.type === "merge-video" && message.mergedVideoId) {
     // eslint-disable-next-line no-console
