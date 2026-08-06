@@ -105,8 +105,9 @@ model VideoSegment {
 model QueueMessage {
   id          String    @id @default(uuid())
   videoJobId  String
-  type        String    @default("video-job") // "video-job" | "merge-video"
+  type        String    @default("video-job") // "video-job" | "merge-video" | "regenerate-segment"
   mergedVideoId String?
+  segmentSeq  Int?
   createdAt   DateTime  @default(now())
   visibleAt   DateTime  @default(now())
   dequeueCount Int      @default(0)

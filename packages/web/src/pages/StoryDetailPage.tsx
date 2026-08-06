@@ -30,6 +30,9 @@ export default function StoryDetailPage() {
   const [editingDescription, setEditingDescription] = useState<string | null>(null);
   const [descUpdateError, setDescUpdateError] = useState<string | null>(null);
   const [mergingJobId, setMergingJobId] = useState<string | null>(null);
+  const [regenTarget, setRegenTarget] = useState<{ jobId: string; seq: number; prompt: string } | null>(null);
+  const [regenLoading, setRegenLoading] = useState(false);
+  const [regenError, setRegenError] = useState<string | null>(null);
   const selectedImage = images.find((img) => img.id === selectedImageId) ?? null;
   const categories = [...new Set(images.map((img) => img.category))].sort();
   const filteredImages = selectedCategory
@@ -99,6 +102,27 @@ export default function StoryDetailPage() {
       setError("觸發合併失敗");
     } finally {
       setMergingJobId(null);
+    }
+  }
+
+  function openRegenModal(jobId: string, seq: number) {
+    const currentPrompt = story?.prompts[seq - 1] ?? "";
+    setRegenTarget({ jobId, seq, prompt: currentPrompt });
+    setRegenError(null);
+  }
+
+  async function handleRegenConfirm() {
+    if (!regenTarget) return;
+    setRegenLoading(true);
+    setRegenError(null);
+    try {
+      await api.regenerateSegment(regenTarget.jobId, regenTarget.seq, regenTarget.prompt);
+      setRegenTarget(null);
+      refresh();
+    } catch {
+      setRegenError("重新產生失敗，請稍後再試");
+    } finally {
+      setRegenLoading(false);
     }
   }
 
@@ -419,6 +443,7 @@ export default function StoryDetailPage() {
                   seq={seq}
                   segment={segment}
                   onOpen={() => setFullscreen({ job, seq })}
+                  onRegen={() => openRegenModal(job.id, seq)}
                 />
               );
             })}
@@ -434,6 +459,55 @@ export default function StoryDetailPage() {
           onChangeSeq={(seq) => setFullscreen({ job: fullscreen.job, seq })}
         />
       )}
+
+      {regenTarget && (
+        <div className="lightbox-backdrop" onClick={() => !regenLoading && setRegenTarget(null)}>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "#fff",
+              borderRadius: "0.5rem",
+              padding: "1.5rem",
+              maxWidth: 480,
+              width: "90%",
+            }}
+          >
+            <h3 style={{ marginTop: 0 }}>重新產生第 {regenTarget.seq} 段影片</h3>
+            <p style={{ fontSize: "0.85rem", color: "#555", marginTop: 0 }}>
+              {regenTarget.seq === 1
+                ? "使用原始來源圖片作為輸入。"
+                : `使用第 ${regenTarget.seq - 1} 段影片的最後一幀作為輸入。`}
+            </p>
+            <label style={{ display: "block", marginBottom: "0.4rem", fontWeight: "bold" }}>
+              提示詞
+            </label>
+            <textarea
+              rows={4}
+              style={{ width: "100%", boxSizing: "border-box" }}
+              value={regenTarget.prompt}
+              onChange={(e) => setRegenTarget({ ...regenTarget, prompt: e.target.value })}
+              disabled={regenLoading}
+            />
+            {regenError && <p className="error-text">{regenError}</p>}
+            <div style={{ display: "flex", gap: "0.5rem", marginTop: "1rem" }}>
+              <button
+                className="btn primary"
+                disabled={regenLoading || !regenTarget.prompt.trim()}
+                onClick={handleRegenConfirm}
+              >
+                {regenLoading ? "排入中…" : "確認重新產生"}
+              </button>
+              <button
+                className="btn"
+                disabled={regenLoading}
+                onClick={() => setRegenTarget(null)}
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -442,10 +516,12 @@ function SegmentCell({
   seq,
   segment,
   onOpen,
+  onRegen,
 }: {
   seq: number;
   segment: VideoSegment | undefined;
   onOpen: () => void;
+  onRegen: () => void;
 }) {
   if (!segment || (!segment.videoUrl && segment.status !== "processing")) {
     return <div className="segment-cell empty">#{seq} 無影像</div>;
@@ -462,13 +538,27 @@ function SegmentCell({
   if (segment.status === "failed") {
     return (
       <div className="segment-cell" title={segment.errorMessage ?? ""}>
-        #{seq} 失敗
+        <div>#{seq} 失敗</div>
+        <button
+          className="btn"
+          style={{ fontSize: "0.75rem", padding: "0.1rem 0.4rem", marginTop: "0.3rem" }}
+          onClick={(e) => { e.stopPropagation(); onRegen(); }}
+        >
+          重新產生
+        </button>
       </div>
     );
   }
   return (
     <div className="segment-cell" onClick={onOpen}>
       {segment.thumbnailUrl ? <img src={segment.thumbnailUrl} alt={`segment ${seq}`} /> : `#${seq}`}
+      <button
+        className="btn"
+        style={{ fontSize: "0.75rem", padding: "0.1rem 0.4rem", marginTop: "0.3rem" }}
+        onClick={(e) => { e.stopPropagation(); onRegen(); }}
+      >
+        重新產生
+      </button>
     </div>
   );
 }

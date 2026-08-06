@@ -5,6 +5,7 @@ export interface ClaimedMessage {
   videoJobId: string;
   type: string;
   mergedVideoId: string | null;
+  segmentSeq: number | null;
 }
 
 /**
@@ -37,6 +38,7 @@ export async function claimNextMessage(
       videoJobId: message.videoJobId,
       type: message.type,
       mergedVideoId: message.mergedVideoId,
+      segmentSeq: message.segmentSeq,
     };
   });
 }
