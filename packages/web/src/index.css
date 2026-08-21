@@ -244,7 +244,64 @@ textarea {
   line-height: 1;
 }
 
-/* ── Responsive: tablet (≤1024px) ── */
+/* ── Image Picker Modal ── */
+.image-picker-modal {
+  background: #fff;
+  border-radius: 10px;
+  width: min(900px, 95vw);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+}
+
+.image-picker-header {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #e2e5ea;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.image-picker-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem 1.25rem;
+}
+
+.image-picker-footer {
+  padding: 0.75rem 1.25rem;
+  border-top: 1px solid #e2e5ea;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.image-tile.selected {
+  border: 2px solid #2563eb;
+}
+
+.image-tile-check {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #2563eb;
+  color: #fff;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  font-weight: bold;
+}
+
 @media (max-width: 1024px) {
   .app-main {
     padding: 1.5rem;
