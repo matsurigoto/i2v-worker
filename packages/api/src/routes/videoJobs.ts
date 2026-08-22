@@ -170,6 +170,75 @@ videoJobsRouter.delete("/:id", async (req, res) => {
   res.status(204).send();
 });
 
+/** POST /api/videojobs/:jobId/segments/:seq/regenerate — re-generate a single segment */
+videoJobsRouter.post("/:jobId/segments/:seq/regenerate", async (req, res) => {
+  const seq = Number(req.params.seq);
+  if (!Number.isInteger(seq) || seq < 1 || seq > SEGMENT_COUNT) {
+    res.status(400).json({ error: `seq must be an integer between 1 and ${SEGMENT_COUNT}` });
+    return;
+  }
+
+  const job = await prisma.videoJob.findUnique({
+    where: { id: req.params.jobId },
+    include: { story: { include: { prompts: true } } },
+  });
+  if (!job) {
+    res.status(404).json({ error: "Video job not found" });
+    return;
+  }
+
+  const { prompt } = req.body ?? {};
+
+  await prisma.$transaction(async (tx) => {
+    // Optionally update the prompt for this segment in the story.
+    if (typeof prompt === "string" && prompt.trim()) {
+      await tx.prompt.upsert({
+        where: { storyId_seq: { storyId: job.storyId, seq } },
+        update: { content: prompt.trim() },
+        create: { storyId: job.storyId, seq, content: prompt.trim() },
+      });
+    }
+
+    // Reset the segment status (delete old storage keys so old video is gone).
+    const existing = await tx.videoSegment.findFirst({
+      where: { videoJobId: job.id, seq },
+    });
+    if (existing) {
+      if (existing.storageKey) await storage.delete(existing.storageKey);
+      if (existing.thumbnailKey) await storage.delete(existing.thumbnailKey);
+      await tx.videoSegment.update({
+        where: { id: existing.id },
+        data: { status: "pending", storageKey: null, thumbnailKey: null, errorMessage: null, apiTaskId: null },
+      });
+    } else {
+      await tx.videoSegment.create({
+        data: { videoJobId: job.id, seq, status: "pending" },
+      });
+    }
+
+    // Mark the job as running again.
+    await tx.videoJob.update({
+      where: { id: job.id },
+      data: { status: "running" },
+    });
+
+    // Enqueue the regeneration task.
+    await tx.queueMessage.create({
+      data: {
+        videoJobId: job.id,
+        type: "regenerate-segment",
+        segmentSeq: seq,
+      },
+    });
+  });
+
+  const updated = await prisma.videoJob.findUniqueOrThrow({
+    where: { id: job.id },
+    include: { segments: true },
+  });
+  res.status(202).json(toVideoJobDto(updated));
+});
+
 videoJobsRouter.delete("/:jobId/segments/:seq", async (req, res) => {
   const seq = Number(req.params.seq);
   const segment = await prisma.videoSegment.findFirst({
