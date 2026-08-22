@@ -45,9 +45,27 @@ export default function StoryDetailPage() {
 
   useEffect(() => {
     refresh();
-    api.listImages(1, 100).then((res) => setImages(res.items));
+    let cancelled = false;
+    (async () => {
+      try {
+        const pageSize = 100;
+        const first = await api.listImages(1, pageSize);
+        if (cancelled) return;
+        const allItems = [...first.items];
+        const totalPages = Math.ceil(first.total / pageSize);
+        for (let p = 2; p <= totalPages; p++) {
+          const next = await api.listImages(p, pageSize);
+          if (cancelled) return;
+          allItems.push(...next.items);
+        }
+        setImages(allItems);
+      } catch {
+        // image list loading failure is non-critical; picker will show empty
+      }
+    })();
     api.listSeries().then((res) => setSeriesList(res.items));
     // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => { cancelled = true; };
   }, [id]);
 
   // Poll while any job is still running so segment progress updates live.
