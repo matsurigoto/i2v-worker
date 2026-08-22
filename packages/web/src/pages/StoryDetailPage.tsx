@@ -589,7 +589,7 @@ function SegmentCell({
   onOpen: () => void;
   onRegen: () => void;
 }) {
-  if (!segment || (!segment.videoUrl && segment.status !== "processing")) {
+  if (!segment || (!segment.videoUrl && segment.status !== "processing" && segment.status !== "failed")) {
     return <div className="segment-cell empty">#{seq} 無影像</div>;
   }
   if (segment.status === "processing" || segment.status === "pending") {
