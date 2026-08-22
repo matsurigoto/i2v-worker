@@ -13,13 +13,13 @@ export default function StoryDetailPage() {
   const [jobs, setJobs] = useState<VideoJob[]>([]);
   const [images, setImages] = useState<ImageAsset[]>([]);
   const [seriesList, setSeriesList] = useState<Series[]>([]);
-  const [selectedImageId, setSelectedImageId] = useState<string>("");
-  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [selectedImageIds, setSelectedImageIds] = useState<string[]>([]);
+  const [showImagePicker, setShowImagePicker] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [triggering, setTriggering] = useState(false);
   const [fullscreen, setFullscreen] = useState<{ job: VideoJob; seq: number } | null>(null);
-  const [previewError, setPreviewError] = useState(false);
+  const [previewError, setPreviewError] = useState<Record<string, boolean>>({});
   const [editingSeriesId, setEditingSeriesId] = useState<string | null | undefined>(undefined);
   const [seriesUpdateError, setSeriesUpdateError] = useState<string | null>(null);
   const [editingPrompts, setEditingPrompts] = useState<string[] | null>(null);
@@ -33,12 +33,6 @@ export default function StoryDetailPage() {
   const [regenTarget, setRegenTarget] = useState<{ jobId: string; seq: number; prompt: string } | null>(null);
   const [regenLoading, setRegenLoading] = useState(false);
   const [regenError, setRegenError] = useState<string | null>(null);
-  const selectedImage = images.find((img) => img.id === selectedImageId) ?? null;
-  const categories = [...new Set(images.map((img) => img.category))].sort();
-  const filteredImages = selectedCategory
-    ? images.filter((img) => img.category === selectedCategory)
-    : images;
-
   async function refresh() {
     if (!id) return;
     try {
@@ -54,9 +48,27 @@ export default function StoryDetailPage() {
 
   useEffect(() => {
     refresh();
-    api.listImages(1, 100).then((res) => setImages(res.items));
+    let cancelled = false;
+    (async () => {
+      try {
+        const pageSize = 100;
+        const first = await api.listImages(1, pageSize);
+        if (cancelled) return;
+        const allItems = [...first.items];
+        const totalPages = Math.ceil(first.total / pageSize);
+        for (let p = 2; p <= totalPages; p++) {
+          const next = await api.listImages(p, pageSize);
+          if (cancelled) return;
+          allItems.push(...next.items);
+        }
+        setImages(allItems);
+      } catch {
+        // image list loading failure is non-critical; picker will show empty
+      }
+    })();
     api.listSeries().then((res) => setSeriesList(res.items));
     // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => { cancelled = true; };
   }, [id]);
 
   // Poll while any job is still running so segment progress updates live.
@@ -69,18 +81,30 @@ export default function StoryDetailPage() {
   }, [jobs]);
 
   useEffect(() => {
-    setPreviewError(false);
-  }, [selectedImageId]);
+    setPreviewError({});
+  }, [selectedImageIds]);
 
   async function handleTrigger() {
-    if (!id || !selectedImageId) return;
+    if (!id || selectedImageIds.length === 0) return;
     setTriggering(true);
     setError(null);
+    const failed: string[] = [];
     try {
-      await api.triggerVideoJob(id, selectedImageId);
-      refresh();
-    } catch {
-      setError("觸發影片產生失敗");
+      for (const imageId of selectedImageIds) {
+        try {
+          await api.triggerVideoJob(id, imageId);
+        } catch {
+          failed.push(imageId);
+        }
+      }
+      const succeeded = selectedImageIds.filter((imgId) => !failed.includes(imgId));
+      if (succeeded.length > 0) {
+        setSelectedImageIds(failed);
+        refresh();
+      }
+      if (failed.length > 0) {
+        setError(`${failed.length} 張圖片觸發失敗，其餘已成功排入佇列`);
+      }
     } finally {
       setTriggering(false);
     }
@@ -374,42 +398,84 @@ export default function StoryDetailPage() {
       <div className="card">
         <h3>產生影片</h3>
         <p style={{ fontSize: "0.85rem", color: "#555" }}>{VIDEO_CHAIN_EXPLANATION}</p>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
-          <select
-            value={selectedCategory}
-            onChange={(e) => { setSelectedCategory(e.target.value); setSelectedImageId(""); }}
-          >
-            <option value="">全部類型</option>
-            {categories.map((cat) => (
-              <option key={cat} value={cat}>{cat}</option>
-            ))}
-          </select>
-          <select value={selectedImageId} onChange={(e) => setSelectedImageId(e.target.value)}>
-            <option value="">選擇來源圖片…</option>
-            {filteredImages.map((img) => (
-              <option key={img.id} value={img.id}>
-                {img.name}
-              </option>
-            ))}
-          </select>
-          {selectedImage && !previewError && (
-            <img
-              className="image-select-preview"
-              src={selectedImage.url}
-              alt={selectedImage.name}
-              title={selectedImage.name}
-              onError={() => setPreviewError(true)}
-            />
-          )}
+        <div style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem", flexWrap: "wrap" }}>
+          <button className="btn" onClick={() => setShowImagePicker(true)}>
+            選擇圖片…
+          </button>
           <button
             className="btn primary"
-            disabled={!selectedImageId || triggering}
+            disabled={selectedImageIds.length === 0 || triggering}
             onClick={handleTrigger}
           >
-            {triggering ? "觸發中…" : "開始產生七段影片"}
+            {triggering
+              ? "觸發中…"
+              : selectedImageIds.length > 0
+              ? `開始產生七段影片（${selectedImageIds.length} 張）`
+              : "開始產生七段影片"}
           </button>
         </div>
+        {selectedImageIds.length > 0 && (
+          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginTop: "0.75rem" }}>
+            {selectedImageIds.map((imgId) => {
+              const img = images.find((i) => i.id === imgId);
+              if (!img) return null;
+              return (
+                <div key={imgId} style={{ position: "relative" }}>
+                  {!previewError[imgId] ? (
+                    <img
+                      className="image-select-preview"
+                      src={img.url}
+                      alt={img.name}
+                      title={img.name}
+                      onError={() => setPreviewError((prev) => ({ ...prev, [imgId]: true }))}
+                    />
+                  ) : (
+                    <div
+                      className="image-select-preview"
+                      style={{ display: "flex", alignItems: "center", justifyContent: "center", background: "#f0f1f4", fontSize: "0.7rem", color: "#999" }}
+                      title={img.name}
+                    >
+                      無縮圖
+                    </div>
+                  )}
+                  <button
+                    onClick={() => setSelectedImageIds((prev) => prev.filter((i) => i !== imgId))}
+                    style={{
+                      position: "absolute",
+                      top: -6,
+                      right: -6,
+                      width: 18,
+                      height: 18,
+                      borderRadius: "50%",
+                      border: "none",
+                      background: "#dc2626",
+                      color: "#fff",
+                      fontSize: "0.65rem",
+                      cursor: "pointer",
+                      lineHeight: 1,
+                      padding: 0,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                    title={`移除 ${img.name}`}
+                  >
+                    ✕
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
         {error && <p className="error-text">{error}</p>}
+        {showImagePicker && (
+          <ImagePickerModal
+            images={images}
+            selected={selectedImageIds}
+            onConfirm={(ids) => { setSelectedImageIds(ids); setShowImagePicker(false); }}
+            onCancel={() => setShowImagePicker(false)}
+          />
+        )}
       </div>
 
       <div className="card">
@@ -594,6 +660,105 @@ function FullscreenPlayer({
           <button className="btn" onClick={onClose}>
             關閉
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ImagePickerModal({
+  images,
+  selected,
+  onConfirm,
+  onCancel,
+}: {
+  images: ImageAsset[];
+  selected: string[];
+  onConfirm: (ids: string[]) => void;
+  onCancel: () => void;
+}) {
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState("");
+  const [draft, setDraft] = useState<string[]>(selected);
+  const [imgErrors, setImgErrors] = useState<Record<string, boolean>>({});
+
+  const categories = [...new Set(images.map((img) => img.category))].sort();
+  const filtered = images.filter((img) => {
+    const matchCat = !category || img.category === category;
+    const matchSearch = !search || img.name.toLowerCase().includes(search.toLowerCase());
+    return matchCat && matchSearch;
+  });
+
+  function toggle(id: string) {
+    setDraft((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]));
+  }
+
+  return (
+    <div className="lightbox-backdrop" onClick={onCancel}>
+      <div className="image-picker-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="image-picker-header">
+          <h3 style={{ margin: 0 }}>選擇來源圖片</h3>
+          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+            <input
+              type="text"
+              placeholder="搜尋圖片名稱…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{ width: 180 }}
+            />
+            <select value={category} onChange={(e) => setCategory(e.target.value)}>
+              <option value="">全部類型</option>
+              {categories.map((cat) => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="image-picker-body">
+          {filtered.length === 0 ? (
+            <p style={{ color: "#888" }}>沒有符合條件的圖片</p>
+          ) : (
+            <div className="grid cols-4">
+              {filtered.map((img) => {
+                const isSelected = draft.includes(img.id);
+                return (
+                  <div
+                    key={img.id}
+                    className={`image-tile${isSelected ? " selected" : ""}`}
+                    onClick={() => toggle(img.id)}
+                  >
+                    <img
+                      src={img.url}
+                      alt={img.name}
+                      onError={() => setImgErrors((prev) => ({ ...prev, [img.id]: true }))}
+                      style={imgErrors[img.id] ? { display: "none" } : undefined}
+                    />
+                    {imgErrors[img.id] && (
+                      <div style={{ width: "100%", height: 200, display: "flex", alignItems: "center", justifyContent: "center", background: "#f0f1f4", color: "#aaa", fontSize: "0.8rem" }}>
+                        無法載入
+                      </div>
+                    )}
+                    {isSelected && <span className="image-tile-check">✓</span>}
+                    <div className="caption">
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {img.name}
+                      </span>
+                      <span style={{ color: "#aaa", flexShrink: 0 }}>{img.category}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        <div className="image-picker-footer">
+          <span style={{ fontSize: "0.9rem", color: "#555" }}>已選 {draft.length} 張</span>
+          <div style={{ display: "flex", gap: "0.5rem" }}>
+            <button className="btn" onClick={onCancel}>取消</button>
+            <button className="btn primary" disabled={draft.length === 0} onClick={() => onConfirm(draft)}>
+              確認
+            </button>
+          </div>
         </div>
       </div>
     </div>
