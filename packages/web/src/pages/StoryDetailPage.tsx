@@ -590,7 +590,18 @@ function SegmentCell({
   onRegen: () => void;
 }) {
   if (!segment || (!segment.videoUrl && segment.status !== "processing" && segment.status !== "failed")) {
-    return <div className="segment-cell empty">#{seq} 無影像</div>;
+    return (
+      <div className="segment-cell empty">
+        <div>#{seq} 無影像</div>
+        <button
+          className="btn"
+          style={{ fontSize: "0.75rem", padding: "0.1rem 0.4rem", marginTop: "0.3rem" }}
+          onClick={(e) => { e.stopPropagation(); onRegen(); }}
+        >
+          重新產生
+        </button>
+      </div>
+    );
   }
   if (segment.status === "processing" || segment.status === "pending") {
     return (
