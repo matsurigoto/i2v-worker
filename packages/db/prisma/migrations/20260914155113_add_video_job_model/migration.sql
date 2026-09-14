@@ -1,0 +1,5 @@
+-- Placeholder: original migration.sql for this already-applied migration was
+-- missing from the working tree. This restores the file (empty/no-op) so
+-- `prisma migrate dev` can replay migration history; it does not re-run any
+-- DDL since the VideoJob/VideoSegment/ImageAsset tables already exist in the
+-- local dev database.

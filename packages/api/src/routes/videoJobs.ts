@@ -20,6 +20,11 @@ type SegmentRow = {
   errorMessage: string | null;
   createdAt: Date;
   updatedAt: Date;
+  audioStatus: string | null;
+  audioPrompt: string | null;
+  audioNegativePrompt: string | null;
+  audioErrorMessage: string | null;
+  audioUpdatedAt: Date | null;
 };
 
 function toSegmentDto(segment: SegmentRow): VideoSegment {
@@ -34,6 +39,11 @@ function toSegmentDto(segment: SegmentRow): VideoSegment {
     errorMessage: segment.errorMessage,
     createdAt: segment.createdAt.toISOString(),
     updatedAt: segment.updatedAt.toISOString(),
+    audioStatus: segment.audioStatus as VideoSegment["audioStatus"],
+    audioPrompt: segment.audioPrompt,
+    audioNegativePrompt: segment.audioNegativePrompt,
+    audioErrorMessage: segment.audioErrorMessage,
+    audioUpdatedAt: segment.audioUpdatedAt ? segment.audioUpdatedAt.toISOString() : null,
   };
 }
 
@@ -66,6 +76,11 @@ function toVideoJobDto(job: {
             errorMessage: null,
             createdAt: job.triggeredAt.toISOString(),
             updatedAt: job.triggeredAt.toISOString(),
+            audioStatus: null,
+            audioPrompt: null,
+            audioNegativePrompt: null,
+            audioErrorMessage: null,
+            audioUpdatedAt: null,
           },
     );
   }
@@ -208,7 +223,20 @@ videoJobsRouter.post("/:jobId/segments/:seq/regenerate", async (req, res) => {
       if (existing.thumbnailKey) await storage.delete(existing.thumbnailKey);
       await tx.videoSegment.update({
         where: { id: existing.id },
-        data: { status: "pending", storageKey: null, thumbnailKey: null, errorMessage: null, apiTaskId: null },
+        data: {
+          status: "pending",
+          storageKey: null,
+          thumbnailKey: null,
+          errorMessage: null,
+          apiTaskId: null,
+          // The video content is being replaced, so any prior dub no longer applies.
+          audioStatus: null,
+          audioPrompt: null,
+          audioNegativePrompt: null,
+          audioErrorMessage: null,
+          audioApiTaskId: null,
+          audioUpdatedAt: null,
+        },
       });
     } else {
       await tx.videoSegment.create({
@@ -227,6 +255,59 @@ videoJobsRouter.post("/:jobId/segments/:seq/regenerate", async (req, res) => {
       data: {
         videoJobId: job.id,
         type: "regenerate-segment",
+        segmentSeq: seq,
+      },
+    });
+  });
+
+  const updated = await prisma.videoJob.findUniqueOrThrow({
+    where: { id: job.id },
+    include: { segments: true },
+  });
+  res.status(202).json(toVideoJobDto(updated));
+});
+
+/** POST /api/videojobs/:jobId/segments/:seq/audio — dub audio onto an existing segment video */
+videoJobsRouter.post("/:jobId/segments/:seq/audio", async (req, res) => {
+  const seq = Number(req.params.seq);
+  if (!Number.isInteger(seq) || seq < 1 || seq > SEGMENT_COUNT) {
+    res.status(400).json({ error: `seq must be an integer between 1 and ${SEGMENT_COUNT}` });
+    return;
+  }
+
+  const job = await prisma.videoJob.findUnique({ where: { id: req.params.jobId } });
+  if (!job) {
+    res.status(404).json({ error: "Video job not found" });
+    return;
+  }
+
+  const segment = await prisma.videoSegment.findFirst({
+    where: { videoJobId: job.id, seq },
+  });
+  if (!segment || !segment.storageKey) {
+    res.status(422).json({ error: "此段尚無影片，請先產生影片後再配音" });
+    return;
+  }
+
+  const { prompt, negativePrompt } = req.body ?? {};
+  const trimmedPrompt = typeof prompt === "string" ? prompt.trim() : "";
+  const trimmedNegativePrompt = typeof negativePrompt === "string" ? negativePrompt.trim() : "";
+
+  await prisma.$transaction(async (tx) => {
+    await tx.videoSegment.update({
+      where: { id: segment.id },
+      data: {
+        audioStatus: "pending",
+        audioPrompt: trimmedPrompt || null,
+        audioNegativePrompt: trimmedNegativePrompt || null,
+        audioErrorMessage: null,
+        audioApiTaskId: null,
+      },
+    });
+    await tx.queueMessage.create({
+      data: {
+        videoJobId: job.id,
+        type: "dub-segment-audio",
         segmentSeq: seq,
       },
     });

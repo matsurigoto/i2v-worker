@@ -4,6 +4,7 @@ import { config } from "./config";
 import { claimNextMessage } from "./queue";
 import { runVideoJob } from "./segmentProcessor";
 import { regenerateSegment } from "./segmentRegenerator";
+import { dubSegmentAudio } from "./segmentAudioDubber";
 import { mergeVideoSegments } from "./videoMerger";
 
 const prisma = getPrismaClient();
@@ -50,6 +51,37 @@ async function tick(): Promise<boolean> {
       // eslint-disable-next-line no-console
       console.error(
         `[worker] regen seq=${message.segmentSeq} VideoJob ${message.videoJobId} failed after ${Date.now() - startedAt}ms:`,
+        err,
+      );
+    }
+    return true;
+  }
+
+  if (message.type === "dub-segment-audio" && message.segmentSeq != null) {
+    // eslint-disable-next-line no-console
+    console.log(
+      `[worker] dubbing audio for segment seq=${message.segmentSeq} of VideoJob ${message.videoJobId} (queue message ${message.id})`,
+    );
+    try {
+      await dubSegmentAudio(
+        {
+          prisma,
+          storage,
+          paasClient,
+          pollIntervalMs: config.pollIntervalMs,
+          pollTimeoutMs: config.pollTimeoutMs,
+        },
+        message.videoJobId,
+        message.segmentSeq,
+      );
+      // eslint-disable-next-line no-console
+      console.log(
+        `[worker] finished dubbing seq=${message.segmentSeq} for VideoJob ${message.videoJobId} in ${Date.now() - startedAt}ms`,
+      );
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error(
+        `[worker] dub seq=${message.segmentSeq} VideoJob ${message.videoJobId} failed after ${Date.now() - startedAt}ms:`,
         err,
       );
     }

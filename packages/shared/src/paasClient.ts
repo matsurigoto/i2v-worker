@@ -16,6 +16,14 @@ export interface ImageToVideoParams {
   model?: string;
 }
 
+export interface SoundOnVideoParams {
+  video: string; // base64 or https:// url
+  prompt?: string;
+  negativePrompt?: string;
+  cfgScale?: number;
+  steps?: number;
+}
+
 export interface CreateTaskResponse {
   id: string;
 }
@@ -91,6 +99,26 @@ export class PaasApiClient {
       return { id: data.id };
     } catch (err) {
       throw wrapAxiosError("create image-to-video task", err);
+    }
+  }
+
+  async createSoundOnVideoTask(
+    params: SoundOnVideoParams,
+  ): Promise<CreateTaskResponse> {
+    try {
+      const { data } = await this.http.post("/api/v3/tasks", {
+        type: "sound-on-video",
+        payload: {
+          video: params.video,
+          prompt: params.prompt,
+          negativePrompt: params.negativePrompt,
+          cfgScale: params.cfgScale,
+          steps: params.steps,
+        },
+      });
+      return { id: data.id };
+    } catch (err) {
+      throw wrapAxiosError("create sound-on-video task", err);
     }
   }
 

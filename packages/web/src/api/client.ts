@@ -123,6 +123,12 @@ export const api = {
       body: JSON.stringify({ prompt }),
     }),
 
+  dubSegmentAudio: (jobId: string, seq: number, prompt: string, negativePrompt: string) =>
+    request<VideoJob>(`/api/videojobs/${jobId}/segments/${seq}/audio`, {
+      method: "POST",
+      body: JSON.stringify({ prompt, negativePrompt }),
+    }),
+
   mergeVideoJob: (jobId: string) =>
     request<MergedVideo>(`/api/videojobs/${jobId}/merge`, { method: "POST" }),
   listMergedVideos: (page = 1, pageSize = 24, q?: string) => {
