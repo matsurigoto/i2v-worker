@@ -28,14 +28,18 @@ type SegmentRow = {
 };
 
 function toSegmentDto(segment: SegmentRow): VideoSegment {
+  // Dubbing/regeneration overwrite the same storageKey, so append the
+  // updatedAt timestamp as a cache-busting query param — otherwise browsers
+  // keep serving the previously cached (e.g. silent) video for the same URL.
+  const versionedUrl = (key: string) => `${mediaUrl(key)}?v=${segment.updatedAt.getTime()}`;
   return {
     id: segment.id,
     videoJobId: segment.videoJobId,
     seq: segment.seq,
     status: segment.status as VideoSegment["status"],
     apiTaskId: segment.apiTaskId,
-    videoUrl: segment.storageKey ? mediaUrl(segment.storageKey) : null,
-    thumbnailUrl: segment.thumbnailKey ? mediaUrl(segment.thumbnailKey) : null,
+    videoUrl: segment.storageKey ? versionedUrl(segment.storageKey) : null,
+    thumbnailUrl: segment.thumbnailKey ? versionedUrl(segment.thumbnailKey) : null,
     errorMessage: segment.errorMessage,
     createdAt: segment.createdAt.toISOString(),
     updatedAt: segment.updatedAt.toISOString(),
