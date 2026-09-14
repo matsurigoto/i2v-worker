@@ -1,6 +1,6 @@
 import { promises as fs } from "fs";
 import path from "path";
-import { BlobServiceClient, ContainerClient } from "@azure/storage-blob";
+import { BlobSASPermissions, BlobServiceClient, ContainerClient } from "@azure/storage-blob";
 
 /**
  * Storage abstraction so the API/worker code is not coupled to a specific
@@ -17,6 +17,14 @@ export interface BlobStorage {
   delete(key: string): Promise<void>;
   /** Return a URL (absolute or relative) that can be used to download/display the object. */
   urlFor(key: string): string;
+  /**
+   * Return a URL that an external, unauthenticated caller (e.g. the PAAS API)
+   * can fetch directly, valid for at least `expiresInMs`. Unlike `urlFor`,
+   * this must be an absolute, internet-reachable URL when the driver supports
+   * it (Azure Blob Storage via SAS token); local dev storage falls back to
+   * `urlFor` since it isn't reachable from outside the host anyway.
+   */
+  getDownloadUrl(key: string, expiresInMs?: number): Promise<string>;
 }
 
 export interface LocalFsStorageOptions {
@@ -52,6 +60,10 @@ export class LocalFsStorage implements BlobStorage {
   urlFor(key: string): string {
     const safeKey = key.replace(/^\/+/, "");
     return `${this.options.publicBasePath.replace(/\/+$/, "")}/${safeKey}`;
+  }
+
+  async getDownloadUrl(key: string): Promise<string> {
+    return this.urlFor(key);
   }
 }
 
@@ -95,5 +107,13 @@ export class AzureBlobStorage implements BlobStorage {
 
   urlFor(key: string): string {
     return this.containerClient.getBlockBlobClient(key).url;
+  }
+
+  async getDownloadUrl(key: string, expiresInMs = 60 * 60 * 1000): Promise<string> {
+    const blockBlobClient = this.containerClient.getBlockBlobClient(key);
+    return blockBlobClient.generateSasUrl({
+      permissions: BlobSASPermissions.parse("r"),
+      expiresOn: new Date(Date.now() + expiresInMs),
+    });
   }
 }

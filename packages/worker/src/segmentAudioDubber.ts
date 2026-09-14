@@ -1,6 +1,5 @@
 import type { PrismaClient } from "@i2v/db";
 import { BlobStorage, PaasApiClient } from "@i2v/shared";
-import { bufferToDataUrl } from "./imagePayload";
 
 export interface SegmentAudioDubberDeps {
   prisma: PrismaClient;
@@ -41,15 +40,17 @@ export async function dubSegmentAudio(
 
   const startedAt = Date.now();
   try {
+    // sound-on-video only downloads a fetchable URL (unlike image-to-video's
+    // `image` field, it rejects base64 data URIs), so hand PAAS a signed URL
+    // instead of embedding the video bytes.
     // eslint-disable-next-line no-console
-    console.log(`[worker] [dub ${videoJobId}] seq=${seq}: downloading current video`);
-    const videoBuffer = await storage.get(segment.storageKey);
-    const videoPayload = bufferToDataUrl(videoBuffer, "video/mp4");
+    console.log(`[worker] [dub ${videoJobId}] seq=${seq}: resolving downloadable video URL`);
+    const videoUrl = await storage.getDownloadUrl(segment.storageKey);
 
     // eslint-disable-next-line no-console
     console.log(`[worker] [dub ${videoJobId}] seq=${seq}: creating PAAS sound-on-video task`);
     const { id: apiTaskId } = await paasClient.createSoundOnVideoTask({
-      video: videoPayload,
+      video: videoUrl,
       prompt: segment.audioPrompt ?? undefined,
       negativePrompt: segment.audioNegativePrompt ?? undefined,
     });
