@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { api } from "../api/client";
+import { ApiError, api } from "../api/client";
 import { DEFAULT_SOUND_NEGATIVE_PROMPT, ImageAsset, SEGMENT_COUNT, Series, Story, VideoJob, VideoSegment } from "../types";
 
 const VIDEO_CHAIN_EXPLANATION =
@@ -177,8 +177,8 @@ export default function StoryDetailPage() {
       await api.dubSegmentAudio(dubTarget.jobId, dubTarget.seq, dubTarget.prompt, dubTarget.negativePrompt);
       setDubTarget(null);
       refresh();
-    } catch {
-      setDubError("配音排入失敗，請稍後再試");
+    } catch (err) {
+      setDubError(err instanceof ApiError ? err.message : "配音排入失敗，請稍後再試");
     } finally {
       setDubLoading(false);
     }

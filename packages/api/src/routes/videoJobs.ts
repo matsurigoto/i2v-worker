@@ -297,15 +297,25 @@ videoJobsRouter.post("/:jobId/segments/:seq/audio", async (req, res) => {
   const trimmedPrompt = typeof prompt === "string" ? prompt.trim() : "";
   const trimmedNegativePrompt = typeof negativePrompt === "string" ? negativePrompt.trim() : "";
 
-  await prisma.$transaction(async (tx) => {
-    await tx.videoSegment.update({
+  const enqueueResult = await prisma.$transaction(async (tx) => {
+    const currentSegment = await tx.videoSegment.findUnique({
       where: { id: segment.id },
+    });
+    if (!currentSegment) return { kind: "missing-segment" as const };
+    if (!currentSegment.storageKey) return { kind: "missing-video" as const };
+    if (currentSegment.audioStatus === "pending" || currentSegment.audioStatus === "processing") {
+      return { kind: "audio-in-progress" as const };
+    }
+
+    await tx.videoSegment.update({
+      where: { id: currentSegment.id },
       data: {
         audioStatus: "pending",
         audioPrompt: trimmedPrompt || null,
         audioNegativePrompt: trimmedNegativePrompt || null,
         audioErrorMessage: null,
         audioApiTaskId: null,
+        audioUpdatedAt: new Date(),
       },
     });
     await tx.queueMessage.create({
@@ -315,7 +325,21 @@ videoJobsRouter.post("/:jobId/segments/:seq/audio", async (req, res) => {
         segmentSeq: seq,
       },
     });
+    return { kind: "queued" as const };
   });
+
+  if (enqueueResult.kind === "missing-segment") {
+    res.status(404).json({ error: "Video segment not found" });
+    return;
+  }
+  if (enqueueResult.kind === "missing-video") {
+    res.status(422).json({ error: "此段尚無影片，請先產生影片後再配音" });
+    return;
+  }
+  if (enqueueResult.kind === "audio-in-progress") {
+    res.status(409).json({ error: "此段正在配音中，請稍候再試" });
+    return;
+  }
 
   const updated = await prisma.videoJob.findUniqueOrThrow({
     where: { id: job.id },
