@@ -171,20 +171,15 @@ jobs:
             exit 0
           fi
 
-          if cat <<'SQL' | npx prisma db execute --schema="$SCHEMA_PATH" --stdin > /dev/null 2>&1
-          SELECT CASE
-            WHEN EXISTS (
-              SELECT 1
-              FROM information_schema.tables
-              WHERE table_schema = current_schema()
-                AND table_name = '_prisma_migrations'
-            ) THEN 1
-            ELSE 1 / 0
-          END;
-          SQL
-          then
+          MIGRATIONS_TABLE_EXISTS=$(psql "$DATABASE_URL" -tAc "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = '_prisma_migrations');" | tr -d '[:space:]')
+          if [ "$MIGRATIONS_TABLE_EXISTS" = "t" ]; then
             echo "::error::Prisma migrate deploy failed even though _prisma_migrations exists; skipping automatic baseline."
             exit "$DEPLOY_EXIT"
+          fi
+
+          if [ "$MIGRATIONS_TABLE_EXISTS" != "f" ]; then
+            echo "::error::Unable to determine whether _prisma_migrations exists."
+            exit 1
           fi
 
           set +e
