@@ -183,19 +183,20 @@ jobs:
           fi
 
           set +e
-          npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel "$SCHEMA_PATH" --exit-code > /tmp/prisma-schema-diff.log 2>&1
+          npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel "$SCHEMA_PATH" --script > /tmp/prisma-schema-diff.sql 2> /tmp/prisma-schema-diff.err
           DIFF_EXIT=$?
           set -e
-          cat /tmp/prisma-schema-diff.log
-
-          if [ "$DIFF_EXIT" -eq 2 ]; then
-            echo "::error::Database schema differs from packages/db/prisma/schema.prisma; refusing automatic baseline."
-            exit 1
-          fi
 
           if [ "$DIFF_EXIT" -ne 0 ]; then
+            cat /tmp/prisma-schema-diff.err
             echo "::error::Failed to compare existing database schema before baseline."
             exit "$DIFF_EXIT"
+          fi
+
+          cat /tmp/prisma-schema-diff.sql
+          if grep -Eqv '^[[:space:]]*(--.*)?$' /tmp/prisma-schema-diff.sql; then
+            echo "::error::Database schema differs from packages/db/prisma/schema.prisma; refusing automatic baseline."
+            exit 1
           fi
 
           echo "Database schema matches Prisma schema and _prisma_migrations is missing. Baselining existing migrations."
