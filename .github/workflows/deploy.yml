@@ -177,9 +177,11 @@ jobs:
           fi
 
           echo "Detected Prisma P3005 on a non-empty database. Baselining existing migrations."
-          while IFS= read -r migration; do
+          for migration_path in "$MIGRATIONS_DIR"/*/; do
+            [ -d "$migration_path" ] || continue
+            migration=$(basename "$migration_path")
             npx prisma migrate resolve --schema="$SCHEMA_PATH" --applied "$migration"
-          done < <(find "$MIGRATIONS_DIR" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort)
+          done
 
           npx prisma migrate deploy --schema="$SCHEMA_PATH"
 
