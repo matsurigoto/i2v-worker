@@ -158,7 +158,39 @@ jobs:
       - name: Apply pending Prisma migrations to PostgreSQL
         env:
           DATABASE_URL: postgresql://${{ needs.deploy-infra.outputs.db-admin-username }}:${{ secrets.DB_ADMIN_PASSWORD }}@${{ needs.deploy-infra.outputs.db-server-fqdn }}:5432/i2v
-        run: npx prisma migrate deploy --schema=packages/db/prisma/schema.prisma
+        run: |
+          SCHEMA_PATH=packages/db/prisma/schema.prisma
+
+          set +e
+          npx prisma migrate deploy --schema="$SCHEMA_PATH"
+          DEPLOY_EXIT=$?
+          set -e
+
+          if [ "$DEPLOY_EXIT" -eq 0 ]; then
+            exit 0
+          fi
+
+          DB_SCHEMA=$(node -e "const url = new URL(process.env.DATABASE_URL); console.log(url.searchParams.get('schema') || 'public');")
+          ESCAPED_DB_SCHEMA=${DB_SCHEMA//\'/\'\'}
+          MIGRATIONS_TABLE_EXISTS=$(psql "$DATABASE_URL" -tAc "SELECT to_regclass(format('%I._prisma_migrations', '${ESCAPED_DB_SCHEMA}')) IS NOT NULL;" | tr -d '[:space:]')
+          if [ "$MIGRATIONS_TABLE_EXISTS" = "t" ]; then
+            echo "::error::Prisma migrate deploy failed and _prisma_migrations exists in schema \"$DB_SCHEMA\"."
+            exit "$DEPLOY_EXIT"
+          fi
+
+          if [ "$MIGRATIONS_TABLE_EXISTS" != "f" ]; then
+            echo "::error::Unable to determine whether _prisma_migrations exists."
+            exit 1
+          fi
+
+          SCHEMA_HAS_TABLES=$(psql "$DATABASE_URL" -tAc "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = '${ESCAPED_DB_SCHEMA}' AND table_type = 'BASE TABLE' AND table_name <> '_prisma_migrations');" | tr -d '[:space:]')
+          if [ "$SCHEMA_HAS_TABLES" != "t" ]; then
+            echo "::error::Prisma migrate deploy failed, but no legacy non-empty schema was detected for fallback."
+            exit "$DEPLOY_EXIT"
+          fi
+
+          echo "Detected legacy database without _prisma_migrations. Applying schema with prisma db push."
+          npx prisma db push --schema="$SCHEMA_PATH" --accept-data-loss
 
       - name: Remove temporary PostgreSQL firewall rule
         if: always()
