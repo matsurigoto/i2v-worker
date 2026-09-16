@@ -177,9 +177,9 @@ jobs:
           fi
 
           echo "Detected Prisma P3005 on a non-empty database. Baselining existing migrations."
-          for migration in $(find "$MIGRATIONS_DIR" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort); do
+          while IFS= read -r migration; do
             npx prisma migrate resolve --schema="$SCHEMA_PATH" --applied "$migration"
-          done
+          done < <(find "$MIGRATIONS_DIR" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort)
 
           npx prisma migrate deploy --schema="$SCHEMA_PATH"
 
