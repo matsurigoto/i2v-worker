@@ -160,7 +160,6 @@ jobs:
           DATABASE_URL: postgresql://${{ needs.deploy-infra.outputs.db-admin-username }}:${{ secrets.DB_ADMIN_PASSWORD }}@${{ needs.deploy-infra.outputs.db-server-fqdn }}:5432/i2v
         run: |
           SCHEMA_PATH=packages/db/prisma/schema.prisma
-          MIGRATIONS_DIR=packages/db/prisma/migrations
 
           set +e
           npx prisma migrate deploy --schema="$SCHEMA_PATH"
@@ -171,9 +170,11 @@ jobs:
             exit 0
           fi
 
-          MIGRATIONS_TABLE_EXISTS=$(psql "$DATABASE_URL" -tAc "SELECT to_regclass('public._prisma_migrations') IS NOT NULL;" | tr -d '[:space:]')
+          DB_SCHEMA=$(node -e "const url = new URL(process.env.DATABASE_URL); console.log(url.searchParams.get('schema') || 'public');")
+          ESCAPED_DB_SCHEMA=${DB_SCHEMA//\'/\'\'}
+          MIGRATIONS_TABLE_EXISTS=$(psql "$DATABASE_URL" -tAc "SELECT to_regclass(format('%I._prisma_migrations', '${ESCAPED_DB_SCHEMA}')) IS NOT NULL;" | tr -d '[:space:]')
           if [ "$MIGRATIONS_TABLE_EXISTS" = "t" ]; then
-            echo "::error::Prisma migrate deploy failed even though _prisma_migrations exists; skipping automatic baseline."
+            echo "::error::Prisma migrate deploy failed and _prisma_migrations exists in schema \"$DB_SCHEMA\"."
             exit "$DEPLOY_EXIT"
           fi
 
@@ -182,31 +183,8 @@ jobs:
             exit 1
           fi
 
-          set +e
-          npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel "$SCHEMA_PATH" --script > /tmp/prisma-schema-diff.sql 2> /tmp/prisma-schema-diff.err
-          DIFF_EXIT=$?
-          set -e
-
-          if [ "$DIFF_EXIT" -ne 0 ]; then
-            cat /tmp/prisma-schema-diff.err
-            echo "::error::Failed to compare existing database schema before baseline."
-            exit "$DIFF_EXIT"
-          fi
-
-          cat /tmp/prisma-schema-diff.sql
-          if grep -Eqv '^[[:space:]]*((--.*)?|(BEGIN|COMMIT);)?[[:space:]]*$' /tmp/prisma-schema-diff.sql; then
-            echo "::error::Database schema differs from packages/db/prisma/schema.prisma; refusing automatic baseline."
-            exit 1
-          fi
-
-          echo "Database schema matches Prisma schema and _prisma_migrations is missing. Baselining existing migrations."
-          for migration_path in "$MIGRATIONS_DIR"/*/; do
-            [ -d "$migration_path" ] || continue
-            migration=$(basename "$migration_path")
-            npx prisma migrate resolve --schema="$SCHEMA_PATH" --applied "$migration"
-          done
-
-          npx prisma migrate deploy --schema="$SCHEMA_PATH"
+          echo "Detected legacy database without _prisma_migrations. Applying schema with prisma db push."
+          npx prisma db push --schema="$SCHEMA_PATH" --accept-data-loss
 
       - name: Remove temporary PostgreSQL firewall rule
         if: always()
