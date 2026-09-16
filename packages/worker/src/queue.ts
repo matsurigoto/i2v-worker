@@ -6,6 +6,7 @@ export interface ClaimedMessage {
   type: string;
   mergedVideoId: string | null;
   segmentSeq: number | null;
+  model: string | null;
 }
 
 /**
@@ -39,6 +40,7 @@ export async function claimNextMessage(
       type: message.type,
       mergedVideoId: message.mergedVideoId,
       segmentSeq: message.segmentSeq,
+      model: message.model,
     };
   });
 }

@@ -30,7 +30,7 @@ export default function StoryDetailPage() {
   const [editingDescription, setEditingDescription] = useState<string | null>(null);
   const [descUpdateError, setDescUpdateError] = useState<string | null>(null);
   const [mergingJobId, setMergingJobId] = useState<string | null>(null);
-  const [regenTarget, setRegenTarget] = useState<{ jobId: string; seq: number; prompt: string } | null>(null);
+  const [regenTarget, setRegenTarget] = useState<{ jobId: string; seq: number; prompt: string; model: ImageToVideoModel } | null>(null);
   const [regenLoading, setRegenLoading] = useState(false);
   const [regenError, setRegenError] = useState<string | null>(null);
   const [selectedModel, setSelectedModel] = useState<ImageToVideoModel>("wan-2.2");
@@ -130,9 +130,9 @@ export default function StoryDetailPage() {
     }
   }
 
-  function openRegenModal(jobId: string, seq: number) {
+  function openRegenModal(jobId: string, seq: number, currentModel: ImageToVideoModel | null) {
     const currentPrompt = story?.prompts[seq - 1] ?? "";
-    setRegenTarget({ jobId, seq, prompt: currentPrompt });
+    setRegenTarget({ jobId, seq, prompt: currentPrompt, model: currentModel ?? "wan-2.2" });
     setRegenError(null);
   }
 
@@ -141,7 +141,7 @@ export default function StoryDetailPage() {
     setRegenLoading(true);
     setRegenError(null);
     try {
-      await api.regenerateSegment(regenTarget.jobId, regenTarget.seq, regenTarget.prompt);
+      await api.regenerateSegment(regenTarget.jobId, regenTarget.seq, regenTarget.prompt, regenTarget.model);
       setRegenTarget(null);
       refresh();
     } catch {
@@ -522,7 +522,7 @@ export default function StoryDetailPage() {
                   seq={seq}
                   segment={segment}
                   onOpen={() => setFullscreen({ job, seq })}
-                  onRegen={() => openRegenModal(job.id, seq)}
+                  onRegen={() => openRegenModal(job.id, seq, job.model)}
                 />
               );
             })}
@@ -567,6 +567,20 @@ export default function StoryDetailPage() {
               onChange={(e) => setRegenTarget({ ...regenTarget, prompt: e.target.value })}
               disabled={regenLoading}
             />
+            <label style={{ display: "block", margin: "0.6rem 0 0.4rem", fontWeight: "bold" }}>
+              模型
+            </label>
+            <select
+              value={regenTarget.model}
+              onChange={(e) => setRegenTarget({ ...regenTarget, model: e.target.value as ImageToVideoModel })}
+              disabled={regenLoading}
+            >
+              {IMAGE_TO_VIDEO_MODELS.map((m) => (
+                <option key={m} value={m}>
+                  {m === "wan-2.2" ? "Wan 2.2（預設）" : "LTX 2.3"}
+                </option>
+              ))}
+            </select>
             {regenError && <p className="error-text">{regenError}</p>}
             <div style={{ display: "flex", gap: "0.5rem", marginTop: "1rem" }}>
               <button

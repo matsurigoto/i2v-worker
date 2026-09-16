@@ -198,7 +198,11 @@ videoJobsRouter.post("/:jobId/segments/:seq/regenerate", async (req, res) => {
     return;
   }
 
-  const { prompt } = req.body ?? {};
+  const { prompt, model } = req.body ?? {};
+  if (model !== undefined && !IMAGE_TO_VIDEO_MODELS.includes(model)) {
+    res.status(400).json({ error: `model must be one of: ${IMAGE_TO_VIDEO_MODELS.join(", ")}` });
+    return;
+  }
 
   await prisma.$transaction(async (tx) => {
     // Optionally update the prompt for this segment in the story.
@@ -245,6 +249,7 @@ videoJobsRouter.post("/:jobId/segments/:seq/regenerate", async (req, res) => {
         videoJobId: job.id,
         type: "regenerate-segment",
         segmentSeq: seq,
+        model: (model as ImageToVideoModel | undefined) ?? null,
       },
     });
   });

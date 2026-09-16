@@ -109,6 +109,7 @@ model QueueMessage {
   type        String    @default("video-job") // "video-job" | "merge-video" | "regenerate-segment"
   mergedVideoId String?
   segmentSeq  Int?
+  model       String? // per-message image-to-video model override, e.g. for "regenerate-segment"
   createdAt   DateTime  @default(now())
   visibleAt   DateTime  @default(now())
   dequeueCount Int      @default(0)
