@@ -39,8 +39,8 @@ TMP_FILE="$(mktemp)"
 sed -E "s/^([[:space:]]*provider[[:space:]]*=[[:space:]]*)\"${OTHER}\"/\\1\"${TARGET}\"/" "$SCHEMA_PATH" > "$TMP_FILE"
 mv "$TMP_FILE" "$SCHEMA_PATH"
 
-if ! grep -qE "^[[:space:]]*provider[[:space:]]*=[[:space:]]*\"${TARGET}\"" "$SCHEMA_PATH"; then
-  MESSAGE="Failed to switch $SCHEMA_PATH provider to \"$TARGET\" (pattern not found or already set to something else)"
+if grep -qE "^[[:space:]]*provider[[:space:]]*=[[:space:]]*\"${OTHER}\"" "$SCHEMA_PATH" || ! grep -qE "^[[:space:]]*provider[[:space:]]*=[[:space:]]*\"${TARGET}\"" "$SCHEMA_PATH"; then
+  MESSAGE="Failed to ensure $SCHEMA_PATH provider is \"$TARGET\""
   if [ -n "${GITHUB_ACTIONS:-}" ]; then
     echo "::error::$MESSAGE" >&2
   else
@@ -55,8 +55,8 @@ if [ -f "$MIGRATION_LOCK_PATH" ]; then
   sed -E "s/^([[:space:]]*provider[[:space:]]*=[[:space:]]*)\"${OTHER}\"/\\1\"${TARGET}\"/" "$MIGRATION_LOCK_PATH" > "$TMP_FILE"
   mv "$TMP_FILE" "$MIGRATION_LOCK_PATH"
 
-  if ! grep -qE "^[[:space:]]*provider[[:space:]]*=[[:space:]]*\"${TARGET}\"" "$MIGRATION_LOCK_PATH"; then
-    MESSAGE="Failed to switch $MIGRATION_LOCK_PATH provider to \"$TARGET\" (pattern not found or already set to something else)"
+  if grep -qE "^[[:space:]]*provider[[:space:]]*=[[:space:]]*\"${OTHER}\"" "$MIGRATION_LOCK_PATH" || ! grep -qE "^[[:space:]]*provider[[:space:]]*=[[:space:]]*\"${TARGET}\"" "$MIGRATION_LOCK_PATH"; then
+    MESSAGE="Failed to ensure $MIGRATION_LOCK_PATH provider is \"$TARGET\""
     if [ -n "${GITHUB_ACTIONS:-}" ]; then
       echo "::error::$MESSAGE" >&2
     else
