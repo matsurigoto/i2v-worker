@@ -158,7 +158,7 @@ jobs:
       - name: Apply database schema to PostgreSQL
         env:
           DATABASE_URL: postgresql://${{ needs.deploy-infra.outputs.db-admin-username }}:${{ secrets.DB_ADMIN_PASSWORD }}@${{ needs.deploy-infra.outputs.db-server-fqdn }}:5432/i2v
-        run: npx prisma db push --schema=packages/db/prisma/schema.prisma --skip-generate
+        run: npx prisma db push --schema=packages/db/prisma/schema.prisma --skip-generate --accept-data-loss
 
       - name: Remove temporary PostgreSQL firewall rule
         if: always()
