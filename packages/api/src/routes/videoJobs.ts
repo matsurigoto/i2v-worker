@@ -297,31 +297,41 @@ videoJobsRouter.post("/:jobId/segments/:seq/audio", async (req, res) => {
   const trimmedPrompt = typeof prompt === "string" ? prompt.trim() : "";
   const trimmedNegativePrompt = typeof negativePrompt === "string" ? negativePrompt.trim() : "";
 
-  await prisma.$transaction(async (tx) => {
-    await tx.videoSegment.update({
-      where: { id: segment.id },
-      data: {
-        audioStatus: "pending",
-        audioPrompt: trimmedPrompt || null,
-        audioNegativePrompt: trimmedNegativePrompt || null,
-        audioErrorMessage: null,
-        audioApiTaskId: null,
-      },
+  // Without this try/catch, an exception here (e.g. a DB error) would
+  // reject this async handler's promise, which Express 4 does not forward
+  // to the error-handling middleware — the request would hang forever with
+  // no response, instead of surfacing an error to the client.
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.videoSegment.update({
+        where: { id: segment.id },
+        data: {
+          audioStatus: "pending",
+          audioPrompt: trimmedPrompt || null,
+          audioNegativePrompt: trimmedNegativePrompt || null,
+          audioErrorMessage: null,
+          audioApiTaskId: null,
+        },
+      });
+      await tx.queueMessage.create({
+        data: {
+          videoJobId: job.id,
+          type: "dub-segment-audio",
+          segmentSeq: seq,
+        },
+      });
     });
-    await tx.queueMessage.create({
-      data: {
-        videoJobId: job.id,
-        type: "dub-segment-audio",
-        segmentSeq: seq,
-      },
-    });
-  });
 
-  const updated = await prisma.videoJob.findUniqueOrThrow({
-    where: { id: job.id },
-    include: { segments: true },
-  });
-  res.status(202).json(toVideoJobDto(updated));
+    const updated = await prisma.videoJob.findUniqueOrThrow({
+      where: { id: job.id },
+      include: { segments: true },
+    });
+    res.status(202).json(toVideoJobDto(updated));
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error(`Failed to enqueue dub-segment-audio for VideoJob ${job.id} seq ${seq}:`, err);
+    res.status(500).json({ error: "配音排入失敗，請稍後再試" });
+  }
 });
 
 videoJobsRouter.delete("/:jobId/segments/:seq", async (req, res) => {
