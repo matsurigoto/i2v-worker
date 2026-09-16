@@ -158,7 +158,30 @@ jobs:
       - name: Apply pending Prisma migrations to PostgreSQL
         env:
           DATABASE_URL: postgresql://${{ needs.deploy-infra.outputs.db-admin-username }}:${{ secrets.DB_ADMIN_PASSWORD }}@${{ needs.deploy-infra.outputs.db-server-fqdn }}:5432/i2v
-        run: npx prisma migrate deploy --schema=packages/db/prisma/schema.prisma
+        run: |
+          SCHEMA_PATH=packages/db/prisma/schema.prisma
+          MIGRATIONS_DIR=packages/db/prisma/migrations
+
+          set +e
+          DEPLOY_OUTPUT=$(npx prisma migrate deploy --schema="$SCHEMA_PATH" 2>&1)
+          DEPLOY_EXIT=$?
+          set -e
+          echo "$DEPLOY_OUTPUT"
+
+          if [ "$DEPLOY_EXIT" -eq 0 ]; then
+            exit 0
+          fi
+
+          if ! echo "$DEPLOY_OUTPUT" | grep -q "Error: P3005"; then
+            exit "$DEPLOY_EXIT"
+          fi
+
+          echo "Detected Prisma P3005 on a non-empty database. Baselining existing migrations."
+          for migration in $(find "$MIGRATIONS_DIR" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort); do
+            npx prisma migrate resolve --schema="$SCHEMA_PATH" --applied "$migration"
+          done
+
+          npx prisma migrate deploy --schema="$SCHEMA_PATH"
 
       - name: Remove temporary PostgreSQL firewall rule
         if: always()
