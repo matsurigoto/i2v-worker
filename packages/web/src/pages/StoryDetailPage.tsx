@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { ApiError, api } from "../api/client";
-import { DEFAULT_SOUND_NEGATIVE_PROMPT, ImageAsset, SEGMENT_COUNT, Series, Story, VideoJob, VideoSegment } from "../types";
+import { api } from "../api/client";
+import { IMAGE_TO_VIDEO_MODELS, ImageAsset, ImageToVideoModel, SEGMENT_COUNT, Series, Story, VideoJob, VideoSegment } from "../types";
 
 const VIDEO_CHAIN_EXPLANATION =
   "PAAS API 僅提供 image-to-video，沒有 video-to-video。第 2~7 段影片，是由前一段影片擷取最後一幀畫面(ffmpeg)做為新的 image 輸入，" +
@@ -33,9 +33,7 @@ export default function StoryDetailPage() {
   const [regenTarget, setRegenTarget] = useState<{ jobId: string; seq: number; prompt: string } | null>(null);
   const [regenLoading, setRegenLoading] = useState(false);
   const [regenError, setRegenError] = useState<string | null>(null);
-  const [dubTarget, setDubTarget] = useState<{ jobId: string; seq: number; prompt: string; negativePrompt: string } | null>(null);
-  const [dubLoading, setDubLoading] = useState(false);
-  const [dubError, setDubError] = useState<string | null>(null);
+  const [selectedModel, setSelectedModel] = useState<ImageToVideoModel>("wan-2.2");
   async function refresh() {
     if (!id) return;
     try {
@@ -76,11 +74,7 @@ export default function StoryDetailPage() {
 
   // Poll while any job is still running so segment progress updates live.
   useEffect(() => {
-    const hasRunning = jobs.some(
-      (j) =>
-        j.status === "running" ||
-        j.segments.some((s) => s.audioStatus === "pending" || s.audioStatus === "processing"),
-    );
+    const hasRunning = jobs.some((j) => j.status === "running");
     if (!hasRunning) return;
     const timer = setInterval(refresh, 4000);
     return () => clearInterval(timer);
@@ -99,7 +93,7 @@ export default function StoryDetailPage() {
     try {
       for (const imageId of selectedImageIds) {
         try {
-          await api.triggerVideoJob(id, imageId);
+          await api.triggerVideoJob(id, imageId, selectedModel);
         } catch {
           failed.push(imageId);
         }
@@ -154,33 +148,6 @@ export default function StoryDetailPage() {
       setRegenError("重新產生失敗，請稍後再試");
     } finally {
       setRegenLoading(false);
-    }
-  }
-
-  function openDubModal(jobId: string, seq: number) {
-    const job = jobs.find((j) => j.id === jobId);
-    const segment = job?.segments.find((s) => s.seq === seq);
-    setDubTarget({
-      jobId,
-      seq,
-      prompt: segment?.audioPrompt ?? "",
-      negativePrompt: segment?.audioNegativePrompt ?? DEFAULT_SOUND_NEGATIVE_PROMPT,
-    });
-    setDubError(null);
-  }
-
-  async function handleDubConfirm() {
-    if (!dubTarget) return;
-    setDubLoading(true);
-    setDubError(null);
-    try {
-      await api.dubSegmentAudio(dubTarget.jobId, dubTarget.seq, dubTarget.prompt, dubTarget.negativePrompt);
-      setDubTarget(null);
-      refresh();
-    } catch (err) {
-      setDubError(err instanceof ApiError ? err.message : "配音排入失敗，請稍後再試");
-    } finally {
-      setDubLoading(false);
     }
   }
 
@@ -436,6 +403,17 @@ export default function StoryDetailPage() {
           <button className="btn" onClick={() => setShowImagePicker(true)}>
             選擇圖片…
           </button>
+          <select
+            value={selectedModel}
+            onChange={(e) => setSelectedModel(e.target.value as ImageToVideoModel)}
+            title="影片生成模型"
+          >
+            {IMAGE_TO_VIDEO_MODELS.map((m) => (
+              <option key={m} value={m}>
+                {m === "wan-2.2" ? "Wan 2.2（預設）" : "LTX 2.3"}
+              </option>
+            ))}
+          </select>
           <button
             className="btn primary"
             disabled={selectedImageIds.length === 0 || triggering}
@@ -513,40 +491,14 @@ export default function StoryDetailPage() {
       </div>
 
       <div className="card">
-        <h3>各段配音提示詞</h3>
-        <p style={{ fontSize: "0.85rem", color: "#555", marginTop: 0 }}>
-          彙總整個故事目前每一段最新一次的配音 prompt / negativePrompt（跨所有影片批次）。
-        </p>
-        <ol>
-          {Array.from({ length: SEGMENT_COUNT }, (_, i) => i + 1).map((seq) => {
-            const latest = jobs
-              .flatMap((j) => j.segments.filter((s) => s.seq === seq && s.audioUpdatedAt))
-              .sort((a, b) => (a.audioUpdatedAt! > b.audioUpdatedAt! ? -1 : 1))[0];
-            return (
-              <li key={seq}>
-                {latest ? (
-                  <>
-                    prompt：{latest.audioPrompt || "（無）"}
-                    <br />
-                    negativePrompt：{latest.audioNegativePrompt || "（無）"}
-                  </>
-                ) : (
-                  <span style={{ color: "#999" }}>尚未配音</span>
-                )}
-              </li>
-            );
-          })}
-        </ol>
-      </div>
-
-      <div className="card">
         <h3>影片牆</h3>
         {jobs.length === 0 && <p>尚未產生任何影片。</p>}
         {jobs.map((job) => (
           <div className="segment-row" key={job.id}>
             <div style={{ minWidth: 140, flexShrink: 0 }}>
               <div>{new Date(job.triggeredAt).toLocaleString()}</div>
-              <span className={`badge ${job.status}`}>{job.status}</span>
+              <span className={`badge ${job.status}`}>{job.status}</span>{" "}
+              <span className="badge" title="影片生成模型">{job.model ?? "預設"}</span>
               <div style={{ display: "flex", gap: "0.25rem", flexWrap: "wrap" }}>
                 {job.status === "completed" && (
                   <button
@@ -571,7 +523,6 @@ export default function StoryDetailPage() {
                   segment={segment}
                   onOpen={() => setFullscreen({ job, seq })}
                   onRegen={() => openRegenModal(job.id, seq)}
-                  onDub={() => openDubModal(job.id, seq)}
                 />
               );
             })}
@@ -636,52 +587,6 @@ export default function StoryDetailPage() {
           </div>
         </div>
       )}
-
-      {dubTarget && (
-        <div className="lightbox-backdrop" onClick={() => !dubLoading && setDubTarget(null)}>
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              background: "#fff",
-              borderRadius: "0.5rem",
-              padding: "1.5rem",
-              maxWidth: 480,
-              width: "90%",
-            }}
-          >
-            <h3 style={{ marginTop: 0 }}>幫第 {dubTarget.seq} 段影片配音</h3>
-            <label style={{ display: "block", marginBottom: "0.4rem", fontWeight: "bold" }}>
-              提示詞（prompt）
-            </label>
-            <textarea
-              rows={3}
-              style={{ width: "100%", boxSizing: "border-box" }}
-              value={dubTarget.prompt}
-              onChange={(e) => setDubTarget({ ...dubTarget, prompt: e.target.value })}
-              disabled={dubLoading}
-            />
-            <label style={{ display: "block", margin: "0.6rem 0 0.4rem", fontWeight: "bold" }}>
-              負面提示詞（negativePrompt）
-            </label>
-            <textarea
-              rows={3}
-              style={{ width: "100%", boxSizing: "border-box" }}
-              value={dubTarget.negativePrompt}
-              onChange={(e) => setDubTarget({ ...dubTarget, negativePrompt: e.target.value })}
-              disabled={dubLoading}
-            />
-            {dubError && <p className="error-text">{dubError}</p>}
-            <div style={{ display: "flex", gap: "0.5rem", marginTop: "1rem" }}>
-              <button className="btn primary" disabled={dubLoading} onClick={handleDubConfirm}>
-                {dubLoading ? "排入中…" : "確認配音"}
-              </button>
-              <button className="btn" disabled={dubLoading} onClick={() => setDubTarget(null)}>
-                取消
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -691,13 +596,11 @@ function SegmentCell({
   segment,
   onOpen,
   onRegen,
-  onDub,
 }: {
   seq: number;
   segment: VideoSegment | undefined;
   onOpen: () => void;
   onRegen: () => void;
-  onDub: () => void;
 }) {
   if (!segment || (!segment.videoUrl && segment.status !== "processing" && segment.status !== "failed")) {
     return (
@@ -736,31 +639,15 @@ function SegmentCell({
       </div>
     );
   }
-  const dubbing = segment.audioStatus === "pending" || segment.audioStatus === "processing";
-  const dubLabel = dubbing
-    ? "配音中…"
-    : segment.audioStatus === "completed" || segment.audioStatus === "failed"
-    ? "重新配音"
-    : "配音";
   return (
     <div className="segment-cell" onClick={onOpen}>
       {segment.thumbnailUrl ? <img src={segment.thumbnailUrl} alt={`segment ${seq}`} /> : `#${seq}`}
-      {segment.audioStatus === "completed" && <span title="已配音">🔊</span>}
       <button
         className="btn"
         style={{ fontSize: "0.75rem", padding: "0.1rem 0.4rem", marginTop: "0.3rem" }}
         onClick={(e) => { e.stopPropagation(); onRegen(); }}
       >
         重新產生
-      </button>
-      <button
-        className="btn"
-        style={{ fontSize: "0.75rem", padding: "0.1rem 0.4rem", marginTop: "0.3rem" }}
-        disabled={dubbing}
-        title={segment.audioStatus === "failed" ? segment.audioErrorMessage ?? "" : undefined}
-        onClick={(e) => { e.stopPropagation(); onDub(); }}
-      >
-        {dubLabel}
       </button>
     </div>
   );

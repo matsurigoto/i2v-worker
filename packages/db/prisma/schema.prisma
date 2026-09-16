@@ -69,6 +69,7 @@ model VideoJob {
   storyId        String
   sourceImageId  String?
   status         String   @default("running") // running | completed | failed | partial
+  model          String? // image-to-video model for this batch: "wan-2.2" | "ltx-2.3"; null = worker default
   triggeredAt    DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -92,14 +93,6 @@ model VideoSegment {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  // Sound-on-video dubbing (overwrites the video at `storageKey` in place).
-  audioStatus         String?   // null=未配音 | pending | processing | completed | failed
-  audioPrompt         String?
-  audioNegativePrompt String?
-  audioErrorMessage   String?
-  audioApiTaskId      String?
-  audioUpdatedAt      DateTime? // set only when a dub is requested/completed
-
   videoJob VideoJob @relation(fields: [videoJobId], references: [id], onDelete: Cascade)
 
   @@unique([videoJobId, seq])
@@ -113,7 +106,7 @@ model VideoSegment {
 model QueueMessage {
   id          String    @id @default(uuid())
   videoJobId  String
-  type        String    @default("video-job") // "video-job" | "merge-video" | "regenerate-segment" | "dub-segment-audio"
+  type        String    @default("video-job") // "video-job" | "merge-video" | "regenerate-segment"
   mergedVideoId String?
   segmentSeq  Int?
   createdAt   DateTime  @default(now())

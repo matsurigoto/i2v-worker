@@ -1,5 +1,6 @@
 import type {
   ImageListResponse,
+  ImageToVideoModel,
   MergedVideo,
   MergedVideoListResponse,
   Series,
@@ -142,10 +143,10 @@ export const api = {
 
   listVideoJobs: (storyId: string) =>
     request<{ items: VideoJob[] }>(`/api/stories/${storyId}/videojobs`),
-  triggerVideoJob: (storyId: string, imageId: string) =>
+  triggerVideoJob: (storyId: string, imageId: string, model?: ImageToVideoModel) =>
     request<VideoJob>(`/api/stories/${storyId}/videojobs`, {
       method: "POST",
-      body: JSON.stringify({ imageId }),
+      body: JSON.stringify({ imageId, model }),
     }),
   deleteVideoJob: (id: string) => request<void>(`/api/videojobs/${id}`, { method: "DELETE" }),
   deleteVideoSegment: (jobId: string, seq: number) =>
@@ -155,12 +156,6 @@ export const api = {
     request<VideoJob>(`/api/videojobs/${jobId}/segments/${seq}/regenerate`, {
       method: "POST",
       body: JSON.stringify({ prompt }),
-    }),
-
-  dubSegmentAudio: (jobId: string, seq: number, prompt: string, negativePrompt: string) =>
-    request<VideoJob>(`/api/videojobs/${jobId}/segments/${seq}/audio`, {
-      method: "POST",
-      body: JSON.stringify({ prompt, negativePrompt }),
     }),
 
   mergeVideoJob: (jobId: string) =>

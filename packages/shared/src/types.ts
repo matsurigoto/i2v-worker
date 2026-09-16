@@ -95,16 +95,10 @@ export type VideoSegmentStatus =
   | "completed"
   | "failed";
 
-/** Status of the optional sound-on-video dubbing pass for a segment. */
-export type VideoSegmentAudioStatus =
-  | "pending"
-  | "processing"
-  | "completed"
-  | "failed";
+/** Image-to-video models exposed by the PAAS API (apidocs/openapi3.json). */
+export type ImageToVideoModel = "wan-2.2" | "ltx-2.3";
 
-/** Default negativePrompt for the `sound-on-video` PAAS task (apidocs/openapi3.json). */
-export const DEFAULT_SOUND_NEGATIVE_PROMPT =
-  "harsh, silence, distorted, clipping, echo, radio, reverbations, whisper";
+export const IMAGE_TO_VIDEO_MODELS: readonly ImageToVideoModel[] = ["wan-2.2", "ltx-2.3"];
 
 export interface VideoSegment {
   id: string;
@@ -117,12 +111,6 @@ export interface VideoSegment {
   errorMessage: string | null;
   createdAt: string;
   updatedAt: string;
-  // Dubbing overwrites `videoUrl` in place once completed (no separate silent copy).
-  audioStatus: VideoSegmentAudioStatus | null;
-  audioPrompt: string | null;
-  audioNegativePrompt: string | null;
-  audioErrorMessage: string | null;
-  audioUpdatedAt: string | null;
 }
 
 export interface VideoJob {
@@ -130,6 +118,8 @@ export interface VideoJob {
   storyId: string;
   sourceImageId: string;
   status: VideoJobStatus;
+  // Image-to-video model used for this batch; null = worker's global default.
+  model: ImageToVideoModel | null;
   triggeredAt: string;
   updatedAt: string;
   segments: VideoSegment[];

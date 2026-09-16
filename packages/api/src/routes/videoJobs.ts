@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { getPrismaClient } from "@i2v/db";
-import { SEGMENT_COUNT, VideoJob, VideoSegment } from "@i2v/shared";
+import { IMAGE_TO_VIDEO_MODELS, ImageToVideoModel, SEGMENT_COUNT, VideoJob, VideoSegment } from "@i2v/shared";
 import { storage } from "../storage";
 import { mediaUrl } from "./media";
 
@@ -20,17 +20,12 @@ type SegmentRow = {
   errorMessage: string | null;
   createdAt: Date;
   updatedAt: Date;
-  audioStatus: string | null;
-  audioPrompt: string | null;
-  audioNegativePrompt: string | null;
-  audioErrorMessage: string | null;
-  audioUpdatedAt: Date | null;
 };
 
 function toSegmentDto(segment: SegmentRow): VideoSegment {
-  // Dubbing/regeneration overwrite the same storageKey, so append the
-  // updatedAt timestamp as a cache-busting query param — otherwise browsers
-  // keep serving the previously cached (e.g. silent) video for the same URL.
+  // Regeneration overwrites the same storageKey, so append the updatedAt
+  // timestamp as a cache-busting query param — otherwise browsers keep
+  // serving the previously cached video for the same URL.
   const versionedUrl = (key: string) => `${mediaUrl(key)}?v=${segment.updatedAt.getTime()}`;
   return {
     id: segment.id,
@@ -43,11 +38,6 @@ function toSegmentDto(segment: SegmentRow): VideoSegment {
     errorMessage: segment.errorMessage,
     createdAt: segment.createdAt.toISOString(),
     updatedAt: segment.updatedAt.toISOString(),
-    audioStatus: segment.audioStatus as VideoSegment["audioStatus"],
-    audioPrompt: segment.audioPrompt,
-    audioNegativePrompt: segment.audioNegativePrompt,
-    audioErrorMessage: segment.audioErrorMessage,
-    audioUpdatedAt: segment.audioUpdatedAt ? segment.audioUpdatedAt.toISOString() : null,
   };
 }
 
@@ -56,6 +46,7 @@ function toVideoJobDto(job: {
   storyId: string;
   sourceImageId: string | null;
   status: string;
+  model: string | null;
   triggeredAt: Date;
   updatedAt: Date;
   segments: SegmentRow[];
@@ -80,11 +71,6 @@ function toVideoJobDto(job: {
             errorMessage: null,
             createdAt: job.triggeredAt.toISOString(),
             updatedAt: job.triggeredAt.toISOString(),
-            audioStatus: null,
-            audioPrompt: null,
-            audioNegativePrompt: null,
-            audioErrorMessage: null,
-            audioUpdatedAt: null,
           },
     );
   }
@@ -94,6 +80,7 @@ function toVideoJobDto(job: {
     storyId: job.storyId,
     sourceImageId: job.sourceImageId ?? "",
     status: job.status as VideoJob["status"],
+    model: (job.model as ImageToVideoModel | null) ?? null,
     triggeredAt: job.triggeredAt.toISOString(),
     updatedAt: job.updatedAt.toISOString(),
     segments,
@@ -103,10 +90,14 @@ function toVideoJobDto(job: {
 /** POST /api/stories/:storyId/videojobs - trigger a new 7-segment video chain */
 storyVideoJobsRouter.post("/", async (req, res) => {
   const { storyId } = req.params as { storyId: string };
-  const { imageId } = req.body ?? {};
+  const { imageId, model } = req.body ?? {};
 
   if (typeof imageId !== "string") {
     res.status(400).json({ error: "imageId is required" });
+    return;
+  }
+  if (model !== undefined && !IMAGE_TO_VIDEO_MODELS.includes(model)) {
+    res.status(400).json({ error: `model must be one of: ${IMAGE_TO_VIDEO_MODELS.join(", ")}` });
     return;
   }
 
@@ -135,6 +126,7 @@ storyVideoJobsRouter.post("/", async (req, res) => {
         storyId,
         sourceImageId: imageId,
         status: "running",
+        model: (model as ImageToVideoModel | undefined) ?? null,
       },
     });
     // Enqueue: the worker picks this up and drives the 7-segment chain.
@@ -233,13 +225,6 @@ videoJobsRouter.post("/:jobId/segments/:seq/regenerate", async (req, res) => {
           thumbnailKey: null,
           errorMessage: null,
           apiTaskId: null,
-          // The video content is being replaced, so any prior dub no longer applies.
-          audioStatus: null,
-          audioPrompt: null,
-          audioNegativePrompt: null,
-          audioErrorMessage: null,
-          audioApiTaskId: null,
-          audioUpdatedAt: null,
         },
       });
     } else {
@@ -269,88 +254,6 @@ videoJobsRouter.post("/:jobId/segments/:seq/regenerate", async (req, res) => {
     include: { segments: true },
   });
   res.status(202).json(toVideoJobDto(updated));
-});
-
-/** POST /api/videojobs/:jobId/segments/:seq/audio — dub audio onto an existing segment video */
-videoJobsRouter.post("/:jobId/segments/:seq/audio", async (req, res) => {
-  const seq = Number(req.params.seq);
-  if (!Number.isInteger(seq) || seq < 1 || seq > SEGMENT_COUNT) {
-    res.status(400).json({ error: `seq must be an integer between 1 and ${SEGMENT_COUNT}` });
-    return;
-  }
-
-  const job = await prisma.videoJob.findUnique({ where: { id: req.params.jobId } });
-  if (!job) {
-    res.status(404).json({ error: "Video job not found" });
-    return;
-  }
-
-  const segment = await prisma.videoSegment.findFirst({
-    where: { videoJobId: job.id, seq },
-  });
-  if (!segment || !segment.storageKey) {
-    res.status(422).json({ error: "此段尚無影片，請先產生影片後再配音" });
-    return;
-  }
-
-  const { prompt, negativePrompt } = req.body ?? {};
-  const trimmedPrompt = typeof prompt === "string" ? prompt.trim() : "";
-  const trimmedNegativePrompt = typeof negativePrompt === "string" ? negativePrompt.trim() : "";
-
-  const enqueueResult = await prisma.$transaction(async (tx) => {
-    const currentSegment = await tx.videoSegment.findUnique({
-      where: { id: segment.id },
-    });
-    if (!currentSegment) return { kind: "missing-segment" as const };
-    if (!currentSegment.storageKey) return { kind: "missing-video" as const };
-    if (currentSegment.audioStatus === "pending" || currentSegment.audioStatus === "processing") {
-      return { kind: "audio-in-progress" as const };
-    }
-
-    await tx.videoSegment.update({
-      where: { id: currentSegment.id },
-      data: {
-        audioStatus: "pending",
-        audioPrompt: trimmedPrompt || null,
-        audioNegativePrompt: trimmedNegativePrompt || null,
-        audioErrorMessage: null,
-        audioApiTaskId: null,
-        audioUpdatedAt: new Date(),
-      },
-    });
-    await tx.queueMessage.create({
-      data: {
-        videoJobId: job.id,
-        type: "dub-segment-audio",
-        segmentSeq: seq,
-      },
-    });
-    return { kind: "queued" as const };
-  });
-
-  if (enqueueResult.kind === "missing-segment") {
-    res.status(404).json({ error: "Video segment not found" });
-    return;
-  }
-  if (enqueueResult.kind === "missing-video") {
-    res.status(422).json({ error: "此段尚無影片，請先產生影片後再配音" });
-    return;
-  }
-  if (enqueueResult.kind === "audio-in-progress") {
-    res.status(409).json({ error: "此段正在配音中，請稍候再試" });
-    return;
-  }
-
-    const updated = await prisma.videoJob.findUniqueOrThrow({
-      where: { id: job.id },
-      include: { segments: true },
-    });
-    res.status(202).json(toVideoJobDto(updated));
-  } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error(`Failed to enqueue dub-segment-audio for VideoJob ${job.id} seq ${seq}:`, err);
-    res.status(500).json({ error: "配音排入失敗，請稍後再試" });
-  }
 });
 
 videoJobsRouter.delete("/:jobId/segments/:seq", async (req, res) => {

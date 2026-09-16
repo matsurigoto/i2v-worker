@@ -115,7 +115,8 @@ export async function regenerateSegment(
     const { id: apiTaskId } = await paasClient.createImageToVideoTask({
       image: imagePayload,
       prompt,
-      model: deps.imageToVideoDefaults?.model,
+      // Per-job model overrides the worker's global default, if the job set one.
+      model: job.model ?? deps.imageToVideoDefaults?.model,
       fps: deps.imageToVideoDefaults?.fps,
       numFrames: deps.imageToVideoDefaults?.numFrames,
       resolution: deps.imageToVideoDefaults?.resolution,
