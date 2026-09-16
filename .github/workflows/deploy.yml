@@ -183,6 +183,12 @@ jobs:
             exit 1
           fi
 
+          SCHEMA_HAS_TABLES=$(psql "$DATABASE_URL" -tAc "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = '${ESCAPED_DB_SCHEMA}' AND table_type = 'BASE TABLE' AND table_name <> '_prisma_migrations');" | tr -d '[:space:]')
+          if [ "$SCHEMA_HAS_TABLES" != "t" ]; then
+            echo "::error::Prisma migrate deploy failed, but no legacy non-empty schema was detected for fallback."
+            exit "$DEPLOY_EXIT"
+          fi
+
           echo "Detected legacy database without _prisma_migrations. Applying schema with prisma db push."
           npx prisma db push --schema="$SCHEMA_PATH" --accept-data-loss
 
