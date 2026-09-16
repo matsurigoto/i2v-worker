@@ -49,6 +49,7 @@ if ! grep -qE "^[[:space:]]*provider[[:space:]]*=[[:space:]]*\"${TARGET}\"" "$SC
   exit 1
 fi
 
+UPDATED_MIGRATION_LOCK=0
 if [ -f "$MIGRATION_LOCK_PATH" ]; then
   TMP_FILE="$(mktemp)"
   sed -E "s/^([[:space:]]*provider[[:space:]]*=[[:space:]]*)\"${OTHER}\"/\\1\"${TARGET}\"/" "$MIGRATION_LOCK_PATH" > "$TMP_FILE"
@@ -63,6 +64,12 @@ if [ -f "$MIGRATION_LOCK_PATH" ]; then
     fi
     exit 1
   fi
+
+  UPDATED_MIGRATION_LOCK=1
 fi
 
-echo "Switched $SCHEMA_PATH datasource provider to \"$TARGET\"."
+if [ "$UPDATED_MIGRATION_LOCK" -eq 1 ]; then
+  echo "Switched datasource provider to \"$TARGET\" in $SCHEMA_PATH and $MIGRATION_LOCK_PATH."
+else
+  echo "Switched datasource provider to \"$TARGET\" in $SCHEMA_PATH."
+fi
