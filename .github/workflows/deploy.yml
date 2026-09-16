@@ -163,20 +163,36 @@ jobs:
           MIGRATIONS_DIR=packages/db/prisma/migrations
 
           set +e
-          DEPLOY_OUTPUT=$(npx prisma migrate deploy --schema="$SCHEMA_PATH" 2>&1)
+          npx prisma migrate deploy --schema="$SCHEMA_PATH"
           DEPLOY_EXIT=$?
           set -e
-          echo "$DEPLOY_OUTPUT"
 
           if [ "$DEPLOY_EXIT" -eq 0 ]; then
             exit 0
           fi
 
-          if ! echo "$DEPLOY_OUTPUT" | grep -q "Error: P3005"; then
+          if printf 'SELECT 1 FROM "_prisma_migrations" LIMIT 1;' | npx prisma db execute --schema="$SCHEMA_PATH" --stdin > /dev/null 2>&1; then
+            echo "::error::Prisma migrate deploy failed even though _prisma_migrations exists; skipping automatic baseline."
             exit "$DEPLOY_EXIT"
           fi
 
-          echo "Detected Prisma P3005 on a non-empty database. Baselining existing migrations."
+          set +e
+          npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel "$SCHEMA_PATH" --exit-code > /tmp/prisma-schema-diff.log 2>&1
+          DIFF_EXIT=$?
+          set -e
+          cat /tmp/prisma-schema-diff.log
+
+          if [ "$DIFF_EXIT" -eq 2 ]; then
+            echo "::error::Database schema differs from packages/db/prisma/schema.prisma; refusing automatic baseline."
+            exit 1
+          fi
+
+          if [ "$DIFF_EXIT" -ne 0 ]; then
+            echo "::error::Failed to compare existing database schema before baseline."
+            exit "$DIFF_EXIT"
+          fi
+
+          echo "Database schema matches Prisma schema and _prisma_migrations is missing. Baselining existing migrations."
           for migration_path in "$MIGRATIONS_DIR"/*/; do
             [ -d "$migration_path" ] || continue
             migration=$(basename "$migration_path")
