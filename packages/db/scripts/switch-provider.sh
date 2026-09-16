@@ -18,6 +18,7 @@ if [ "$TARGET" != "sqlite" ] && [ "$TARGET" != "postgresql" ]; then
 fi
 
 SCHEMA_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/prisma/schema.prisma"
+MIGRATION_LOCK_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/prisma/migrations/migration_lock.toml"
 
 if [ ! -f "$SCHEMA_PATH" ]; then
   echo "Error: schema file not found at $SCHEMA_PATH" >&2
@@ -46,6 +47,22 @@ if ! grep -qE "^[[:space:]]*provider[[:space:]]*=[[:space:]]*\"${TARGET}\"" "$SC
     echo "Error: $MESSAGE" >&2
   fi
   exit 1
+fi
+
+if [ -f "$MIGRATION_LOCK_PATH" ]; then
+  TMP_FILE="$(mktemp)"
+  sed -E "s/^([[:space:]]*provider[[:space:]]*=[[:space:]]*)\"${OTHER}\"/\\1\"${TARGET}\"/" "$MIGRATION_LOCK_PATH" > "$TMP_FILE"
+  mv "$TMP_FILE" "$MIGRATION_LOCK_PATH"
+
+  if ! grep -qE "^[[:space:]]*provider[[:space:]]*=[[:space:]]*\"${TARGET}\"" "$MIGRATION_LOCK_PATH"; then
+    MESSAGE="Failed to switch $MIGRATION_LOCK_PATH provider to \"$TARGET\" (pattern not found or already set to something else)"
+    if [ -n "${GITHUB_ACTIONS:-}" ]; then
+      echo "::error::$MESSAGE" >&2
+    else
+      echo "Error: $MESSAGE" >&2
+    fi
+    exit 1
+  fi
 fi
 
 echo "Switched $SCHEMA_PATH datasource provider to \"$TARGET\"."
