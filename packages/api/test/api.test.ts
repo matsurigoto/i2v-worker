@@ -4,10 +4,12 @@ import os from "os";
 import path from "path";
 import { execSync } from "child_process";
 import request from "supertest";
+import { getPrismaClient } from "@i2v/db";
 
 let tmpDir: string;
 let app: import("express").Express;
 let agent: ReturnType<typeof request.agent>;
+let prisma: ReturnType<typeof getPrismaClient>;
 
 beforeAll(async () => {
   tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "i2v-api-test-"));
@@ -32,6 +34,7 @@ beforeAll(async () => {
   const { createApp } = await import("../src/index");
   app = createApp();
   agent = request.agent(app);
+  prisma = getPrismaClient();
 });
 
 afterAll(async () => {
@@ -192,6 +195,95 @@ describe("video jobs", () => {
 
     const deleteRes = await agent.delete(`/api/videojobs/${triggerRes.body.id}`);
     expect(deleteRes.status).toBe(204);
+  });
+
+  it("allows re-dubbing a completed segment and records the latest prompt", async () => {
+    const prompts = Array.from({ length: 7 }, (_, i) => `p${i + 1}`);
+    const storyRes = await agent
+      .post("/api/stories")
+      .send({ name: "Dub Story", description: "", prompts });
+    const storyId = storyRes.body.id;
+
+    const uploadRes = await agent
+      .post("/api/images")
+      .attach("files", Buffer.from("fake-image-bytes"), "dub-source.png");
+    const imageId = uploadRes.body.items[0].id;
+
+    const triggerRes = await agent
+      .post(`/api/stories/${storyId}/videojobs`)
+      .send({ imageId });
+    const jobId = triggerRes.body.id;
+
+    await prisma.videoSegment.create({
+      data: {
+        videoJobId: jobId,
+        seq: 1,
+        status: "completed",
+        storageKey: "videos/segment-1.mp4",
+      },
+    });
+
+    const firstDubRes = await agent
+      .post(`/api/videojobs/${jobId}/segments/1/audio`)
+      .send({ prompt: "first prompt", negativePrompt: "first negative" });
+    expect(firstDubRes.status).toBe(202);
+    expect(firstDubRes.body.segments[0].audioStatus).toBe("pending");
+    expect(firstDubRes.body.segments[0].audioPrompt).toBe("first prompt");
+    expect(firstDubRes.body.segments[0].audioNegativePrompt).toBe("first negative");
+    expect(firstDubRes.body.segments[0].audioUpdatedAt).toBeTruthy();
+
+    await prisma.videoSegment.updateMany({
+      where: { videoJobId: jobId, seq: 1 },
+      data: { audioStatus: "completed" },
+    });
+
+    const redubRes = await agent
+      .post(`/api/videojobs/${jobId}/segments/1/audio`)
+      .send({ prompt: "retry prompt", negativePrompt: "retry negative" });
+    expect(redubRes.status).toBe(202);
+    expect(redubRes.body.segments[0].audioStatus).toBe("pending");
+    expect(redubRes.body.segments[0].audioPrompt).toBe("retry prompt");
+    expect(redubRes.body.segments[0].audioNegativePrompt).toBe("retry negative");
+
+    const queueMessages = await prisma.queueMessage.findMany({
+      where: { videoJobId: jobId, type: "dub-segment-audio", segmentSeq: 1 },
+      orderBy: { createdAt: "asc" },
+    });
+    expect(queueMessages).toHaveLength(2);
+  });
+
+  it("rejects re-dubbing while a dub is already queued or running", async () => {
+    const prompts = Array.from({ length: 7 }, (_, i) => `p${i + 1}`);
+    const storyRes = await agent
+      .post("/api/stories")
+      .send({ name: "Busy Dub Story", description: "", prompts });
+    const storyId = storyRes.body.id;
+
+    const uploadRes = await agent
+      .post("/api/images")
+      .attach("files", Buffer.from("fake-image-bytes"), "busy-dub-source.png");
+    const imageId = uploadRes.body.items[0].id;
+
+    const triggerRes = await agent
+      .post(`/api/stories/${storyId}/videojobs`)
+      .send({ imageId });
+    const jobId = triggerRes.body.id;
+
+    await prisma.videoSegment.create({
+      data: {
+        videoJobId: jobId,
+        seq: 1,
+        status: "completed",
+        storageKey: "videos/segment-1.mp4",
+        audioStatus: "processing",
+      },
+    });
+
+    const res = await agent
+      .post(`/api/videojobs/${jobId}/segments/1/audio`)
+      .send({ prompt: "retry prompt", negativePrompt: "retry negative" });
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe("此段正在配音中，請稍候再試");
   });
 });
 
