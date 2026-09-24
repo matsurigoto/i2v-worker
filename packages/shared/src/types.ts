@@ -95,11 +95,6 @@ export type VideoSegmentStatus =
   | "completed"
   | "failed";
 
-/** Image-to-video models exposed by the PAAS API (apidocs/openapi3.json). */
-export type ImageToVideoModel = "wan-2.2" | "ltx-2.3";
-
-export const IMAGE_TO_VIDEO_MODELS: readonly ImageToVideoModel[] = ["wan-2.2", "ltx-2.3"];
-
 export interface VideoSegment {
   id: string;
   videoJobId: string;
@@ -118,8 +113,6 @@ export interface VideoJob {
   storyId: string;
   sourceImageId: string;
   status: VideoJobStatus;
-  // Image-to-video model used for this batch; null = worker's global default.
-  model: ImageToVideoModel | null;
   triggeredAt: string;
   updatedAt: string;
   segments: VideoSegment[];

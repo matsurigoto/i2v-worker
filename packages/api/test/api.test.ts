@@ -4,12 +4,10 @@ import os from "os";
 import path from "path";
 import { execSync } from "child_process";
 import request from "supertest";
-import { getPrismaClient } from "@i2v/db";
 
 let tmpDir: string;
 let app: import("express").Express;
 let agent: ReturnType<typeof request.agent>;
-let prisma: ReturnType<typeof getPrismaClient>;
 
 beforeAll(async () => {
   tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "i2v-api-test-"));
@@ -34,7 +32,6 @@ beforeAll(async () => {
   const { createApp } = await import("../src/index");
   app = createApp();
   agent = request.agent(app);
-  prisma = getPrismaClient();
 });
 
 afterAll(async () => {

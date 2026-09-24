@@ -75,8 +75,6 @@ export async function runVideoJob(
   let currentImageBuffer = await storage.get(job.sourceImage.storageKey);
   let currentContentType = job.sourceImage.contentType;
   let anySucceeded = false;
-  // Per-job model overrides the worker's global default, if the job set one.
-  const effectiveModel = job.model ?? deps.imageToVideoDefaults?.model;
 
   for (let seq = 1; seq <= SEGMENT_COUNT; seq += 1) {
     const segmentStartedAt = Date.now();
@@ -97,7 +95,7 @@ export async function runVideoJob(
       const taskParams = {
         image: imagePayload,
         prompt: prompts[seq - 1],
-        model: effectiveModel,
+        model: deps.imageToVideoDefaults?.model,
         fps: deps.imageToVideoDefaults?.fps,
         numFrames: deps.imageToVideoDefaults?.numFrames,
         resolution: deps.imageToVideoDefaults?.resolution,

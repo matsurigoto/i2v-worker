@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { api } from "../api/client";
-import { IMAGE_TO_VIDEO_MODELS, ImageAsset, ImageToVideoModel, SEGMENT_COUNT, Series, Story, VideoJob, VideoSegment } from "../types";
+import { ImageAsset, SEGMENT_COUNT, Series, Story, VideoJob, VideoSegment } from "../types";
 
 const VIDEO_CHAIN_EXPLANATION =
   "PAAS API 僅提供 image-to-video，沒有 video-to-video。第 2~7 段影片，是由前一段影片擷取最後一幀畫面(ffmpeg)做為新的 image 輸入，" +
@@ -30,10 +30,9 @@ export default function StoryDetailPage() {
   const [editingDescription, setEditingDescription] = useState<string | null>(null);
   const [descUpdateError, setDescUpdateError] = useState<string | null>(null);
   const [mergingJobId, setMergingJobId] = useState<string | null>(null);
-  const [regenTarget, setRegenTarget] = useState<{ jobId: string; seq: number; prompt: string; model: ImageToVideoModel } | null>(null);
+  const [regenTarget, setRegenTarget] = useState<{ jobId: string; seq: number; prompt: string } | null>(null);
   const [regenLoading, setRegenLoading] = useState(false);
   const [regenError, setRegenError] = useState<string | null>(null);
-  const [selectedModel, setSelectedModel] = useState<ImageToVideoModel>("wan-2.2");
   async function refresh() {
     if (!id) return;
     try {
@@ -93,7 +92,7 @@ export default function StoryDetailPage() {
     try {
       for (const imageId of selectedImageIds) {
         try {
-          await api.triggerVideoJob(id, imageId, selectedModel);
+          await api.triggerVideoJob(id, imageId);
         } catch {
           failed.push(imageId);
         }
@@ -130,9 +129,9 @@ export default function StoryDetailPage() {
     }
   }
 
-  function openRegenModal(jobId: string, seq: number, currentModel: ImageToVideoModel | null) {
+  function openRegenModal(jobId: string, seq: number) {
     const currentPrompt = story?.prompts[seq - 1] ?? "";
-    setRegenTarget({ jobId, seq, prompt: currentPrompt, model: currentModel ?? "wan-2.2" });
+    setRegenTarget({ jobId, seq, prompt: currentPrompt });
     setRegenError(null);
   }
 
@@ -141,7 +140,7 @@ export default function StoryDetailPage() {
     setRegenLoading(true);
     setRegenError(null);
     try {
-      await api.regenerateSegment(regenTarget.jobId, regenTarget.seq, regenTarget.prompt, regenTarget.model);
+      await api.regenerateSegment(regenTarget.jobId, regenTarget.seq, regenTarget.prompt);
       setRegenTarget(null);
       refresh();
     } catch {
@@ -403,17 +402,6 @@ export default function StoryDetailPage() {
           <button className="btn" onClick={() => setShowImagePicker(true)}>
             選擇圖片…
           </button>
-          <select
-            value={selectedModel}
-            onChange={(e) => setSelectedModel(e.target.value as ImageToVideoModel)}
-            title="影片生成模型"
-          >
-            {IMAGE_TO_VIDEO_MODELS.map((m) => (
-              <option key={m} value={m}>
-                {m === "wan-2.2" ? "Wan 2.2（預設）" : "LTX 2.3"}
-              </option>
-            ))}
-          </select>
           <button
             className="btn primary"
             disabled={selectedImageIds.length === 0 || triggering}
@@ -497,8 +485,7 @@ export default function StoryDetailPage() {
           <div className="segment-row" key={job.id}>
             <div style={{ minWidth: 140, flexShrink: 0 }}>
               <div>{new Date(job.triggeredAt).toLocaleString()}</div>
-              <span className={`badge ${job.status}`}>{job.status}</span>{" "}
-              <span className="badge" title="影片生成模型">{job.model ?? "預設"}</span>
+              <span className={`badge ${job.status}`}>{job.status}</span>
               <div style={{ display: "flex", gap: "0.25rem", flexWrap: "wrap" }}>
                 {job.status === "completed" && (
                   <button
@@ -522,7 +509,7 @@ export default function StoryDetailPage() {
                   seq={seq}
                   segment={segment}
                   onOpen={() => setFullscreen({ job, seq })}
-                  onRegen={() => openRegenModal(job.id, seq, job.model)}
+                  onRegen={() => openRegenModal(job.id, seq)}
                 />
               );
             })}
@@ -567,20 +554,6 @@ export default function StoryDetailPage() {
               onChange={(e) => setRegenTarget({ ...regenTarget, prompt: e.target.value })}
               disabled={regenLoading}
             />
-            <label style={{ display: "block", margin: "0.6rem 0 0.4rem", fontWeight: "bold" }}>
-              模型
-            </label>
-            <select
-              value={regenTarget.model}
-              onChange={(e) => setRegenTarget({ ...regenTarget, model: e.target.value as ImageToVideoModel })}
-              disabled={regenLoading}
-            >
-              {IMAGE_TO_VIDEO_MODELS.map((m) => (
-                <option key={m} value={m}>
-                  {m === "wan-2.2" ? "Wan 2.2（預設）" : "LTX 2.3"}
-                </option>
-              ))}
-            </select>
             {regenError && <p className="error-text">{regenError}</p>}
             <div style={{ display: "flex", gap: "0.5rem", marginTop: "1rem" }}>
               <button

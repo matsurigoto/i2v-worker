@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { getPrismaClient } from "@i2v/db";
-import { IMAGE_TO_VIDEO_MODELS, ImageToVideoModel, SEGMENT_COUNT, VideoJob, VideoSegment } from "@i2v/shared";
+import { SEGMENT_COUNT, VideoJob, VideoSegment } from "@i2v/shared";
 import { storage } from "../storage";
 import { mediaUrl } from "./media";
 
@@ -23,18 +23,14 @@ type SegmentRow = {
 };
 
 function toSegmentDto(segment: SegmentRow): VideoSegment {
-  // Regeneration overwrites the same storageKey, so append the updatedAt
-  // timestamp as a cache-busting query param — otherwise browsers keep
-  // serving the previously cached video for the same URL.
-  const versionedUrl = (key: string) => `${mediaUrl(key)}?v=${segment.updatedAt.getTime()}`;
   return {
     id: segment.id,
     videoJobId: segment.videoJobId,
     seq: segment.seq,
     status: segment.status as VideoSegment["status"],
     apiTaskId: segment.apiTaskId,
-    videoUrl: segment.storageKey ? versionedUrl(segment.storageKey) : null,
-    thumbnailUrl: segment.thumbnailKey ? versionedUrl(segment.thumbnailKey) : null,
+    videoUrl: segment.storageKey ? mediaUrl(segment.storageKey) : null,
+    thumbnailUrl: segment.thumbnailKey ? mediaUrl(segment.thumbnailKey) : null,
     errorMessage: segment.errorMessage,
     createdAt: segment.createdAt.toISOString(),
     updatedAt: segment.updatedAt.toISOString(),
@@ -46,7 +42,6 @@ function toVideoJobDto(job: {
   storyId: string;
   sourceImageId: string | null;
   status: string;
-  model: string | null;
   triggeredAt: Date;
   updatedAt: Date;
   segments: SegmentRow[];
@@ -80,7 +75,6 @@ function toVideoJobDto(job: {
     storyId: job.storyId,
     sourceImageId: job.sourceImageId ?? "",
     status: job.status as VideoJob["status"],
-    model: (job.model as ImageToVideoModel | null) ?? null,
     triggeredAt: job.triggeredAt.toISOString(),
     updatedAt: job.updatedAt.toISOString(),
     segments,
@@ -90,14 +84,10 @@ function toVideoJobDto(job: {
 /** POST /api/stories/:storyId/videojobs - trigger a new 7-segment video chain */
 storyVideoJobsRouter.post("/", async (req, res) => {
   const { storyId } = req.params as { storyId: string };
-  const { imageId, model } = req.body ?? {};
+  const { imageId } = req.body ?? {};
 
   if (typeof imageId !== "string") {
     res.status(400).json({ error: "imageId is required" });
-    return;
-  }
-  if (model !== undefined && !IMAGE_TO_VIDEO_MODELS.includes(model)) {
-    res.status(400).json({ error: `model must be one of: ${IMAGE_TO_VIDEO_MODELS.join(", ")}` });
     return;
   }
 
@@ -126,7 +116,6 @@ storyVideoJobsRouter.post("/", async (req, res) => {
         storyId,
         sourceImageId: imageId,
         status: "running",
-        model: (model as ImageToVideoModel | undefined) ?? null,
       },
     });
     // Enqueue: the worker picks this up and drives the 7-segment chain.
@@ -198,11 +187,7 @@ videoJobsRouter.post("/:jobId/segments/:seq/regenerate", async (req, res) => {
     return;
   }
 
-  const { prompt, model } = req.body ?? {};
-  if (model !== undefined && !IMAGE_TO_VIDEO_MODELS.includes(model)) {
-    res.status(400).json({ error: `model must be one of: ${IMAGE_TO_VIDEO_MODELS.join(", ")}` });
-    return;
-  }
+  const { prompt } = req.body ?? {};
 
   await prisma.$transaction(async (tx) => {
     // Optionally update the prompt for this segment in the story.
@@ -223,13 +208,7 @@ videoJobsRouter.post("/:jobId/segments/:seq/regenerate", async (req, res) => {
       if (existing.thumbnailKey) await storage.delete(existing.thumbnailKey);
       await tx.videoSegment.update({
         where: { id: existing.id },
-        data: {
-          status: "pending",
-          storageKey: null,
-          thumbnailKey: null,
-          errorMessage: null,
-          apiTaskId: null,
-        },
+        data: { status: "pending", storageKey: null, thumbnailKey: null, errorMessage: null, apiTaskId: null },
       });
     } else {
       await tx.videoSegment.create({
@@ -249,7 +228,6 @@ videoJobsRouter.post("/:jobId/segments/:seq/regenerate", async (req, res) => {
         videoJobId: job.id,
         type: "regenerate-segment",
         segmentSeq: seq,
-        model: (model as ImageToVideoModel | undefined) ?? null,
       },
     });
   });
