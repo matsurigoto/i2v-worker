@@ -41,7 +41,6 @@ async function tick(): Promise<boolean> {
         },
         message.videoJobId,
         message.segmentSeq,
-        message.model ?? undefined,
       );
       // eslint-disable-next-line no-console
       console.log(

@@ -32,7 +32,6 @@ export async function regenerateSegment(
   deps: SegmentRegeneratorDeps,
   videoJobId: string,
   seq: number,
-  modelOverride?: string,
 ): Promise<void> {
   const { prisma, storage, paasClient } = deps;
 
@@ -116,8 +115,7 @@ export async function regenerateSegment(
     const { id: apiTaskId } = await paasClient.createImageToVideoTask({
       image: imagePayload,
       prompt,
-      // Explicit override (from this regenerate call) beats the job's original model, which beats the worker's global default.
-      model: modelOverride ?? job.model ?? deps.imageToVideoDefaults?.model,
+      model: deps.imageToVideoDefaults?.model,
       fps: deps.imageToVideoDefaults?.fps,
       numFrames: deps.imageToVideoDefaults?.numFrames,
       resolution: deps.imageToVideoDefaults?.resolution,

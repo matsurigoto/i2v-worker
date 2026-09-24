@@ -18,7 +18,6 @@ if [ "$TARGET" != "sqlite" ] && [ "$TARGET" != "postgresql" ]; then
 fi
 
 SCHEMA_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/prisma/schema.prisma"
-MIGRATION_LOCK_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/prisma/migrations/migration_lock.toml"
 
 if [ ! -f "$SCHEMA_PATH" ]; then
   echo "Error: schema file not found at $SCHEMA_PATH" >&2
@@ -39,8 +38,8 @@ TMP_FILE="$(mktemp)"
 sed -E "s/^([[:space:]]*provider[[:space:]]*=[[:space:]]*)\"${OTHER}\"/\\1\"${TARGET}\"/" "$SCHEMA_PATH" > "$TMP_FILE"
 mv "$TMP_FILE" "$SCHEMA_PATH"
 
-if grep -qE "^[[:space:]]*provider[[:space:]]*=[[:space:]]*\"${OTHER}\"" "$SCHEMA_PATH" || ! grep -qE "^[[:space:]]*provider[[:space:]]*=[[:space:]]*\"${TARGET}\"" "$SCHEMA_PATH"; then
-  MESSAGE="Failed to ensure $SCHEMA_PATH provider is \"$TARGET\""
+if ! grep -qE "^[[:space:]]*provider[[:space:]]*=[[:space:]]*\"${TARGET}\"" "$SCHEMA_PATH"; then
+  MESSAGE="Failed to switch $SCHEMA_PATH provider to \"$TARGET\" (pattern not found or already set to something else)"
   if [ -n "${GITHUB_ACTIONS:-}" ]; then
     echo "::error::$MESSAGE" >&2
   else
@@ -49,27 +48,4 @@ if grep -qE "^[[:space:]]*provider[[:space:]]*=[[:space:]]*\"${OTHER}\"" "$SCHEM
   exit 1
 fi
 
-UPDATED_MIGRATION_LOCK=0
-if [ -f "$MIGRATION_LOCK_PATH" ]; then
-  TMP_FILE="$(mktemp)"
-  sed -E "s/^([[:space:]]*provider[[:space:]]*=[[:space:]]*)\"${OTHER}\"/\\1\"${TARGET}\"/" "$MIGRATION_LOCK_PATH" > "$TMP_FILE"
-  mv "$TMP_FILE" "$MIGRATION_LOCK_PATH"
-
-  if grep -qE "^[[:space:]]*provider[[:space:]]*=[[:space:]]*\"${OTHER}\"" "$MIGRATION_LOCK_PATH" || ! grep -qE "^[[:space:]]*provider[[:space:]]*=[[:space:]]*\"${TARGET}\"" "$MIGRATION_LOCK_PATH"; then
-    MESSAGE="Failed to ensure $MIGRATION_LOCK_PATH provider is \"$TARGET\""
-    if [ -n "${GITHUB_ACTIONS:-}" ]; then
-      echo "::error::$MESSAGE" >&2
-    else
-      echo "Error: $MESSAGE" >&2
-    fi
-    exit 1
-  fi
-
-  UPDATED_MIGRATION_LOCK=1
-fi
-
-if [ "$UPDATED_MIGRATION_LOCK" -eq 1 ]; then
-  echo "Switched datasource provider to \"$TARGET\" in $SCHEMA_PATH and $MIGRATION_LOCK_PATH."
-else
-  echo "Switched datasource provider to \"$TARGET\" in $SCHEMA_PATH."
-fi
+echo "Switched $SCHEMA_PATH datasource provider to \"$TARGET\"."
