@@ -17,6 +17,10 @@
 
 export const SEGMENT_COUNT = 7;
 
+/** Supported PAAS image-to-video models (apidocs/openapi3.json). First is the default. */
+export const VIDEO_MODELS = ["wan-2.2", "ltx-2.3"] as const;
+export const DEFAULT_VIDEO_MODEL = "wan-2.2";
+
 /** Task status values as defined by apidocs/openapi3.json `#/.../status`. */
 export type PaasTaskStatus =
   | "pending"
@@ -112,6 +116,7 @@ export interface VideoJob {
   id: string;
   storyId: string;
   sourceImageId: string;
+  model: string;
   status: VideoJobStatus;
   triggeredAt: string;
   updatedAt: string;

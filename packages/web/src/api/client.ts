@@ -108,10 +108,10 @@ export const api = {
 
   listVideoJobs: (storyId: string) =>
     request<{ items: VideoJob[] }>(`/api/stories/${storyId}/videojobs`),
-  triggerVideoJob: (storyId: string, imageId: string) =>
+  triggerVideoJob: (storyId: string, imageId: string, model?: string) =>
     request<VideoJob>(`/api/stories/${storyId}/videojobs`, {
       method: "POST",
-      body: JSON.stringify({ imageId }),
+      body: JSON.stringify({ imageId, model }),
     }),
   deleteVideoJob: (id: string) => request<void>(`/api/videojobs/${id}`, { method: "DELETE" }),
   deleteVideoSegment: (jobId: string, seq: number) =>

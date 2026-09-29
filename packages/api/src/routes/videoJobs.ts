@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { getPrismaClient } from "@i2v/db";
-import { SEGMENT_COUNT, VideoJob, VideoSegment } from "@i2v/shared";
+import { DEFAULT_VIDEO_MODEL, SEGMENT_COUNT, VIDEO_MODELS, VideoJob, VideoSegment } from "@i2v/shared";
 import { storage } from "../storage";
 import { mediaUrl } from "./media";
 
@@ -41,6 +41,7 @@ function toVideoJobDto(job: {
   id: string;
   storyId: string;
   sourceImageId: string | null;
+  model: string;
   status: string;
   triggeredAt: Date;
   updatedAt: Date;
@@ -74,6 +75,7 @@ function toVideoJobDto(job: {
     id: job.id,
     storyId: job.storyId,
     sourceImageId: job.sourceImageId ?? "",
+    model: job.model,
     status: job.status as VideoJob["status"],
     triggeredAt: job.triggeredAt.toISOString(),
     updatedAt: job.updatedAt.toISOString(),
@@ -84,10 +86,17 @@ function toVideoJobDto(job: {
 /** POST /api/stories/:storyId/videojobs - trigger a new 7-segment video chain */
 storyVideoJobsRouter.post("/", async (req, res) => {
   const { storyId } = req.params as { storyId: string };
-  const { imageId } = req.body ?? {};
+  const { imageId, model } = req.body ?? {};
 
   if (typeof imageId !== "string") {
     res.status(400).json({ error: "imageId is required" });
+    return;
+  }
+  if (
+    model !== undefined &&
+    (typeof model !== "string" || !(VIDEO_MODELS as readonly string[]).includes(model))
+  ) {
+    res.status(400).json({ error: `model must be one of: ${VIDEO_MODELS.join(", ")}` });
     return;
   }
 
@@ -115,6 +124,7 @@ storyVideoJobsRouter.post("/", async (req, res) => {
       data: {
         storyId,
         sourceImageId: imageId,
+        model: model ?? DEFAULT_VIDEO_MODEL,
         status: "running",
       },
     });

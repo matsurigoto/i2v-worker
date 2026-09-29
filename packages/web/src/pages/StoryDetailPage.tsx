@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { api } from "../api/client";
-import { ImageAsset, SEGMENT_COUNT, Series, Story, VideoJob, VideoSegment } from "../types";
+import { DEFAULT_VIDEO_MODEL, ImageAsset, SEGMENT_COUNT, Series, Story, VIDEO_MODELS, VideoJob, VideoSegment } from "../types";
 
 const VIDEO_CHAIN_EXPLANATION =
   "PAAS API 僅提供 image-to-video，沒有 video-to-video。第 2~7 段影片，是由前一段影片擷取最後一幀畫面(ffmpeg)做為新的 image 輸入，" +
@@ -18,6 +18,7 @@ export default function StoryDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [triggering, setTriggering] = useState(false);
+  const [model, setModel] = useState<string>(DEFAULT_VIDEO_MODEL);
   const [fullscreen, setFullscreen] = useState<{ job: VideoJob; seq: number } | null>(null);
   const [previewError, setPreviewError] = useState<Record<string, boolean>>({});
   const [editingSeriesId, setEditingSeriesId] = useState<string | null | undefined>(undefined);
@@ -92,7 +93,7 @@ export default function StoryDetailPage() {
     try {
       for (const imageId of selectedImageIds) {
         try {
-          await api.triggerVideoJob(id, imageId);
+          await api.triggerVideoJob(id, imageId, model);
         } catch {
           failed.push(imageId);
         }
@@ -402,6 +403,16 @@ export default function StoryDetailPage() {
           <button className="btn" onClick={() => setShowImagePicker(true)}>
             選擇圖片…
           </button>
+          <label style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+            模型
+            <select value={model} onChange={(e) => setModel(e.target.value)} disabled={triggering}>
+              {VIDEO_MODELS.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          </label>
           <button
             className="btn primary"
             disabled={selectedImageIds.length === 0 || triggering}

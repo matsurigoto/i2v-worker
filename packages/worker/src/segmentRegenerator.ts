@@ -116,7 +116,7 @@ export async function regenerateSegment(
     const { id: apiTaskId } = await paasClient.createImageToVideoTask({
       image: imagePayload,
       prompt,
-      model: deps.imageToVideoDefaults?.model,
+      model: job.model || deps.imageToVideoDefaults?.model,
       fps: deps.imageToVideoDefaults?.fps,
       numFrames: deps.imageToVideoDefaults?.numFrames,
       resolution: deps.imageToVideoDefaults?.resolution,
