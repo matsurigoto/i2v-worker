@@ -12,6 +12,7 @@ export interface ImageToVideoParams {
   fps?: number;
   numFrames?: number;
   resolution?: string;
+  performance?: string;
   seed?: number;
   model?: string;
 }
@@ -84,6 +85,7 @@ export class PaasApiClient {
           fps: params.fps,
           numFrames: params.numFrames,
           resolution: params.resolution,
+          performance: params.performance,
           seed: params.seed,
           model: params.model,
         },

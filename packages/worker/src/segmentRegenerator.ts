@@ -17,6 +17,7 @@ export interface SegmentRegeneratorDeps {
     fps?: number;
     numFrames?: number;
     resolution?: string;
+    performance?: string;
   };
 }
 
@@ -115,10 +116,11 @@ export async function regenerateSegment(
     const { id: apiTaskId } = await paasClient.createImageToVideoTask({
       image: imagePayload,
       prompt,
-      model: deps.imageToVideoDefaults?.model,
+      model: job.model || deps.imageToVideoDefaults?.model,
       fps: deps.imageToVideoDefaults?.fps,
       numFrames: deps.imageToVideoDefaults?.numFrames,
       resolution: deps.imageToVideoDefaults?.resolution,
+      performance: deps.imageToVideoDefaults?.performance,
     });
 
     await prisma.videoSegment.update({ where: { id: segment.id }, data: { apiTaskId } });

@@ -69,6 +69,7 @@ model VideoJob {
   storyId        String
   sourceImageId  String?
   status         String   @default("running") // running | completed | failed | partial
+  model          String   @default("wan-2.2") // wan-2.2 | ltx-2.3
   triggeredAt    DateTime @default(now())
   updatedAt      DateTime @updatedAt
 

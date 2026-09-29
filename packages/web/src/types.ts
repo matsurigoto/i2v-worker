@@ -1,5 +1,8 @@
 export const SEGMENT_COUNT = 7;
 
+export const VIDEO_MODELS = ["wan-2.2", "ltx-2.3"] as const;
+export const DEFAULT_VIDEO_MODEL = "wan-2.2";
+
 export interface Series {
   id: string;
   name: string;

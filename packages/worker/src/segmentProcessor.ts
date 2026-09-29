@@ -22,6 +22,7 @@ export interface SegmentProcessorDeps {
     fps?: number;
     numFrames?: number;
     resolution?: string;
+    performance?: string;
   };
 }
 
@@ -95,10 +96,11 @@ export async function runVideoJob(
       const taskParams = {
         image: imagePayload,
         prompt: prompts[seq - 1],
-        model: deps.imageToVideoDefaults?.model,
+        model: job.model || deps.imageToVideoDefaults?.model,
         fps: deps.imageToVideoDefaults?.fps,
         numFrames: deps.imageToVideoDefaults?.numFrames,
         resolution: deps.imageToVideoDefaults?.resolution,
+        performance: deps.imageToVideoDefaults?.performance,
       };
       // eslint-disable-next-line no-console
       console.log(

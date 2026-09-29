@@ -22,5 +22,6 @@ export const config = {
     fps: num("IMAGE_TO_VIDEO_FPS", 16),
     numFrames: num("IMAGE_TO_VIDEO_NUM_FRAMES", 81),
     resolution: process.env.IMAGE_TO_VIDEO_RESOLUTION || "480p",
+    performance: process.env.IMAGE_TO_VIDEO_PERFORMANCE || "quality",
   },
 };
