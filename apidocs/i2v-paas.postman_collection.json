@@ -51,7 +51,7 @@
 				],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n  \"type\": \"image-to-video\",\n  \"payload\": {\n    \"image\": \"data:image/png;base64,<BASE64_IMAGE_DATA>\",\n    \"prompt\": \"A cat walking gracefully across the room\",\n    \"model\": \"wan-2.2\",\n    \"fps\": 16,\n    \"numFrames\": 81,\n    \"resolution\": \"480p\"\n  }\n}"
+					"raw": "{\n  \"type\": \"image-to-video\",\n  \"payload\": {\n    \"image\": \"data:image/png;base64,<BASE64_IMAGE_DATA>\",\n    \"prompt\": \"A cat walking gracefully across the room\",\n    \"model\": \"wan-2.2\",\n    \"fps\": 16,\n    \"numFrames\": 16,\n    \"resolution\": \"480p\"\n  }\n}"
 				},
 				"url": {
 					"raw": "{{baseUrl}}/api/v3/tasks",
@@ -95,7 +95,7 @@
 				],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n  \"type\": \"image-to-video\",\n  \"payload\": {\n    \"image\": \"https://example.com/your-image.png\",\n    \"prompt\": \"A cat walking gracefully across the room\",\n    \"model\": \"wan-2.2\",\n    \"fps\": 16,\n    \"numFrames\": 81,\n    \"resolution\": \"480p\"\n  }\n}"
+					"raw": "{\n  \"type\": \"image-to-video\",\n  \"payload\": {\n    \"image\": \"https://example.com/your-image.png\",\n    \"prompt\": \"A cat walking gracefully across the room\",\n    \"model\": \"wan-2.2\",\n    \"fps\": 16,\n    \"numFrames\": 16,\n    \"resolution\": \"480p\"\n  }\n}"
 				},
 				"url": {
 					"raw": "{{baseUrl}}/api/v3/tasks",
