@@ -76,20 +76,29 @@ export class PaasApiClient {
   async createImageToVideoTask(
     params: ImageToVideoParams,
   ): Promise<CreateTaskResponse> {
+    const body = {
+      type: "image-to-video",
+      payload: {
+        image: params.image,
+        prompt: params.prompt,
+        fps: params.fps,
+        numFrames: params.numFrames,
+        resolution: params.resolution,
+        performance: params.performance,
+        seed: params.seed,
+        model: params.model,
+      },
+    };
+    const loggedImage = params.image.startsWith("data:")
+      ? `${params.image.slice(0, 40)}...[${params.image.length} chars]`
+      : params.image;
+    console.log(
+      `[PAAS] POST ${this.options.baseUrl}/api/v3/tasks request: ${JSON.stringify(
+        { ...body, payload: { ...body.payload, image: loggedImage } },
+      )}`,
+    );
     try {
-      const { data } = await this.http.post("/api/v3/tasks", {
-        type: "image-to-video",
-        payload: {
-          image: params.image,
-          prompt: params.prompt,
-          fps: params.fps,
-          numFrames: params.numFrames,
-          resolution: params.resolution,
-          performance: params.performance,
-          seed: params.seed,
-          model: params.model,
-        },
-      });
+      const { data } = await this.http.post("/api/v3/tasks", body);
       return { id: data.id };
     } catch (err) {
       throw wrapAxiosError("create image-to-video task", err);
