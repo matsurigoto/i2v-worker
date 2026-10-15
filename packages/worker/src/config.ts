@@ -8,6 +8,7 @@ function num(name: string, fallback: number): number {
 }
 
 export const config = {
+  paasApiKey: process.env.PAAS_API_KEY || undefined,
   paasApiBaseUrl: process.env.PAAS_API_BASE_URL ?? "http://localhost:8080",
   pollIntervalMs: num("POLL_INTERVAL_MS", 20000),
   pollTimeoutMs: num("POLL_TIMEOUT_MS", 15 * 60 * 1000),

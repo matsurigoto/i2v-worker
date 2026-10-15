@@ -41,6 +41,10 @@ param authPasswordHash string
 @description('Full PAAS API base URL including credentials, e.g. https://user:pass@api.artworks.ai')
 param paasApiBaseUrl string
 
+@secure()
+@description('PAAS API key, sent as a Bearer token. Leave empty if the base URL already carries credentials.')
+param paasApiKey string = ''
+
 @description('Hostname only (no protocol) of the Static Web App frontend (e.g. "wonderful-desert-0abc1.azurestaticapps.net"). Used to configure CORS on the API. Leave empty to auto-detect from the deployed Static Web App.')
 param webAppHostname string = ''
 
@@ -178,23 +182,27 @@ resource workerApp 'Microsoft.App/containerApps@2024-03-01' = {
     managedEnvironmentId: containerAppsEnv.id
     configuration: {
       activeRevisionsMode: 'Single'
-      secrets: [
+      secrets: concat([
         { name: 'paas-api-base-url', value: paasApiBaseUrl }
-      ]
+      ], empty(paasApiKey) ? [] : [
+        { name: 'paas-api-key', value: paasApiKey }
+      ])
     }
     template: {
       containers: [
         {
           name: 'worker'
           image: workerContainerImage
-          env: [
+          env: concat([
             { name: 'DATABASE_URL', value: 'postgresql://${dbAdminUsername}:${dbAdminPassword}@${dbServer.properties.fullyQualifiedDomainName}:5432/i2v' }
             { name: 'STORAGE_DRIVER', value: 'azure-blob' }
             { name: 'AZURE_STORAGE_CONNECTION_STRING', value: 'DefaultEndpointsProtocol=https;AccountName=${storage.name};AccountKey=${storage.listKeys().keys[0].value};EndpointSuffix=core.windows.net' }
             { name: 'AZURE_STORAGE_CONTAINER_NAME', value: 'media' }
             { name: 'AZURE_STORAGE_QUEUE_NAME', value: 'video-jobs' }
             { name: 'PAAS_API_BASE_URL', secretRef: 'paas-api-base-url' }
-          ]
+          ], empty(paasApiKey) ? [] : [
+            { name: 'PAAS_API_KEY', secretRef: 'paas-api-key' }
+          ])
         }
       ]
       // i2v-worker runs a continuous DB-polling loop (see
