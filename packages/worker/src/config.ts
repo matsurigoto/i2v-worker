@@ -21,7 +21,7 @@ export const config = {
     model: process.env.IMAGE_TO_VIDEO_MODEL || "wan-2.2",
     fps: num("IMAGE_TO_VIDEO_FPS", 16),
     numFrames: num("IMAGE_TO_VIDEO_NUM_FRAMES", 81),
-    resolution: process.env.IMAGE_TO_VIDEO_RESOLUTION || "480p",
+    resolution: process.env.IMAGE_TO_VIDEO_RESOLUTION || "720p",
     performance: process.env.IMAGE_TO_VIDEO_PERFORMANCE || "quality",
   },
 };

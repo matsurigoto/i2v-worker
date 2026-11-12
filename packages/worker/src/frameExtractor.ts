@@ -50,20 +50,55 @@ export async function extractFirstFrame(videoPath: string): Promise<Buffer> {
   return extractFrameAt(videoPath, 0);
 }
 
+const LAST_FRAME_CANDIDATES = 8;
+
 /**
- * Extracts (approximately) the last frame of a video and returns it as a PNG
- * buffer. Because the PAAS API only supports image-to-video (no
- * video-to-video), this frame becomes the `image` input for the next segment
- * in the 7-part video chain ("影片接龍").
+ * Decodes the tail of the video and returns the last `count` frames as
+ * lossless PNG buffers (in order).
+ */
+async function extractTailFrames(videoPath: string, count: number): Promise<Buffer[]> {
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "i2v-tail-"));
+  try {
+    await new Promise<void>((resolve, reject) => {
+      ffmpeg(videoPath)
+        .inputOptions(["-sseof", "-2"])
+        .outputOptions(["-vsync", "0"])
+        .output(path.join(tmpDir, "f_%04d.png"))
+        .on("end", () => resolve())
+        .on("error", (err) => reject(err))
+        .run();
+    });
+    const files = (await fs.readdir(tmpDir)).filter((f) => f.endsWith(".png")).sort();
+    return await Promise.all(
+      files.slice(-count).map((f) => fs.readFile(path.join(tmpDir, f))),
+    );
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+}
+
+/**
+ * Extracts the last frame of a video as a lossless PNG buffer. Because the
+ * PAAS API only supports image-to-video (no video-to-video), this frame
+ * becomes the `image` input for the next segment in the 7-part video chain
+ * ("影片接龍").
  *
- * We probe the real duration and seek to a small epsilon before the end
- * (rather than relying on a percentage-based seek) to reliably land on the
- * final decodable frame instead of overshooting past end-of-stream. If an
- * epsilon still overshoots the last decodable frame (e.g. for very short or
- * low-frame-rate clips), we retry with progressively larger epsilons
- * (seeking further from the end), finally falling back to the first frame.
+ * The very last frames of generated clips are often motion-blurred, so we
+ * decode the last few frames and pick the sharpest one. PNG file size is
+ * used as a sharpness proxy: blurry frames compress better (smaller), while
+ * detailed frames are larger. If that fails (e.g. very short clips), we fall
+ * back to seeking near the end with progressively larger epsilons.
  */
 export async function extractLastFrame(videoPath: string): Promise<Buffer> {
+  try {
+    const frames = await extractTailFrames(videoPath, LAST_FRAME_CANDIDATES);
+    if (frames.length > 0) {
+      return frames.reduce((best, cur) => (cur.length > best.length ? cur : best));
+    }
+  } catch {
+    // fall through to timestamp-based extraction
+  }
+
   const duration = await probeDurationSeconds(videoPath);
   const epsilons = [0.15, 0.3, 0.5, 0.75, 1, 2, duration];
 
